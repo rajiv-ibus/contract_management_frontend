@@ -5,7 +5,8 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { EmptyState, PageHeader, StatusBadge, fmtDate } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input, NativeSelect } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { counterpartyName } from "@/demo/docs";
 import { useDemo, useLookups } from "@/demo/store";
@@ -23,7 +24,7 @@ const filters: { value: WorkflowStatus | "ALL"; label: string }[] = [
 
 export function DocumentListPage() {
     const { documents, projectId, permissions, libraries } = useDemo();
-    const { userName, docType } = useLookups();
+    const { userName, docType, projectName } = useLookups();
     const navigate = useNavigate();
     const [params, setParams] = useSearchParams();
     const [query, setQuery] = useState("");
@@ -53,7 +54,7 @@ export function DocumentListPage() {
         <>
             <PageHeader
                 title="Documents"
-                description="All contracts in this project. Click a row to open it."
+                description={`All contracts in the ${projectName(projectId)} project. Click a row to open it.`}
                 actions={
                     permissions.canMake && (
                         <Button asChild>

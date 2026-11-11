@@ -15,7 +15,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Checkbox, Field, Input, Textarea } from "@/components/ui/form";
+import { Field } from "@/components/Field";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useDemo } from "@/demo/store";
 import type { Membership, User } from "@/demo/types";
@@ -81,7 +84,7 @@ function AccessEditor({ user, onClose }: { user: User; onClose: () => void }) {
 
     return (
         <Dialog open onOpenChange={(o) => !o && onClose()}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Project access · {user.name}</DialogTitle>
                     <DialogDescription>
@@ -362,7 +365,7 @@ export function ProjectsPage() {
         <SuperAdminOnly>
             <PageHeader
                 title="Projects"
-                description="Each document belongs to one project. Only members of a project can see its documents."
+                description="Each contract belongs to one project, such as Hospitality or Procurement. Only members of a project can see its contracts."
                 actions={
                     <Button onClick={() => setOpen(true)}>
                         <Plus /> New project
@@ -401,7 +404,7 @@ export function ProjectsPage() {
                                     <p className="text-lg font-semibold">
                                         {documents.filter((d) => d.projectId === p.id).length}
                                     </p>
-                                    <p className="text-xs text-muted-foreground">Documents</p>
+                                    <p className="text-xs text-muted-foreground">Contracts</p>
                                 </div>
                             </CardContent>
                             <CardFooter className="justify-between text-xs text-muted-foreground">

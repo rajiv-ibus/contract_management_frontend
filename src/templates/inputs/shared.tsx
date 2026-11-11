@@ -4,7 +4,7 @@ import { CircleAlertIcon, FlagIcon, PlusIcon, Trash2Icon, TriangleAlertIcon } fr
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { FieldDef, FieldValue, Issue, RuleTier } from "../model";
 

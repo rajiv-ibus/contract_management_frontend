@@ -3,7 +3,7 @@ import { useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/form";
+import { Textarea } from "@/components/ui/textarea";
 
 import type { FieldLibrary } from "../model";
 import { checkLibraryText } from "./check";

@@ -31,7 +31,7 @@ export function FieldDialog({ library, field, onClose }: FieldDialogProps) {
     const shown = useRetained(field);
     return (
         <Dialog open={field !== null} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-h-[85vh] max-w-2xl gap-0 overflow-hidden p-0">
+            <DialogContent className="max-h-[85vh] gap-0 sm:max-w-2xl overflow-hidden p-0">
                 {shown && <FieldDetails library={library} field={shown} />}
             </DialogContent>
         </Dialog>

@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import { EmptyState } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 
 import type { FieldLibrary } from "../model";
 import { sameList } from "./describe";

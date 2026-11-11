@@ -7,7 +7,9 @@ import { EmptyState, PageHeader } from "@/components/common";
 import { PdfDropzone } from "@/components/PdfDropzone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, Input, NativeSelect } from "@/components/ui/form";
+import { Field } from "@/components/Field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { deriveContext, documentIssues, nonBlocking, submitLibrary } from "@/demo/docs";
 import { useDemo, useLookups } from "@/demo/store";
 import { completion, composeFields, countByTier, emptyValues } from "@/templates/engine";
@@ -18,7 +20,7 @@ export function DocumentFormPage() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { documents, libraries, projectId, permissions, currentUser, actions } = useDemo();
-    const { userName } = useLookups();
+    const { userName, projectName } = useLookups();
     const existing = id ? documents.find((d) => d.id === id) : undefined;
 
     const library = useMemo(() => submitLibrary(libraries[projectId]), [libraries, projectId]);
@@ -118,7 +120,7 @@ export function DocumentFormPage() {
             </Link>
             <PageHeader
                 title={existing ? "Edit draft" : "New document"}
-                description="Upload the contract PDF and enter its details. You can save a draft and submit later."
+                description={`This contract will belong to the ${projectName(existing?.projectId ?? projectId)} project, and only its members can see it. Upload the contract PDF and enter its details; you can save a draft and submit later.`}
                 actions={
                     <>
                         <Button variant="outline" onClick={() => save(false)}>

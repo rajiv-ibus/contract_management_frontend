@@ -114,7 +114,7 @@ export function TypesTab({ library }: { library: FieldLibrary }) {
             </div>
 
             <Dialog open={previewing !== null} onOpenChange={(open) => !open && setPreviewing(null)}>
-                <DialogContent className="max-h-[85vh] max-w-5xl gap-0 overflow-hidden p-0">
+                <DialogContent className="max-h-[85vh] gap-0 sm:max-w-5xl overflow-hidden p-0">
                     {shown && <PreviewBody key={shown.id} library={library} type={shown.type} />}
                 </DialogContent>
             </Dialog>

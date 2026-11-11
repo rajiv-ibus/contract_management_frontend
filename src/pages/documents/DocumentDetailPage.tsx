@@ -34,7 +34,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Checkbox, Field, NativeSelect, Textarea } from "@/components/ui/form";
+import { Field } from "@/components/Field";
+import { Checkbox } from "@/components/ui/checkbox";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { approvalFields, deriveContext, documentIssues, submitLibrary } from "@/demo/docs";
 import { useDemo, useLookups } from "@/demo/store";
@@ -214,7 +217,7 @@ export function DocumentDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { documents, libraries, currentUser, permissions, actions } = useDemo();
-    const { userName, docType, familyName } = useLookups();
+    const { userName, docType, familyName, projectName } = useLookups();
     const [dialog, setDialog] = useState<DialogKind>(null);
     const [text, setText] = useState("");
     const [attested, setAttested] = useState<string[]>([]);
@@ -401,7 +404,7 @@ export function DocumentDetailPage() {
                         <StatusBadge status={doc.status} />
                     </span>
                 }
-                description={`${doc.instanceId ?? "Instance ID assigned on first submission"} · ${familyName(doc.projectId, doc.typeCode)} › ${type?.name} · created by ${userName(doc.createdById)}`}
+                description={`Project ${projectName(doc.projectId)} · ${doc.instanceId ?? "Instance ID assigned on first submission"} · ${familyName(doc.projectId, doc.typeCode)} › ${type?.name} · created by ${userName(doc.createdById)}`}
                 actions={
                     <>
                         {current && (
@@ -779,7 +782,7 @@ export function DocumentDetailPage() {
 
             <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
                 {current && (
-                    <DialogContent className="max-h-[90vh] max-w-3xl bg-muted">
+                    <DialogContent className="max-h-[90vh] bg-muted sm:max-w-3xl">
                         <DialogHeader>
                             <DialogTitle>Summary Reference Sheet · version {current.no}</DialogTitle>
                             <DialogDescription>

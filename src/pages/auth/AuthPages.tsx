@@ -3,7 +3,8 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/form";
+import { Field } from "@/components/Field";
+import { Input } from "@/components/ui/input";
 
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
     return (

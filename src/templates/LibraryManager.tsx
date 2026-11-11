@@ -199,7 +199,7 @@ export function LibraryManager({ library, projectName, onSave }: LibraryManagerP
             </Tabs>
 
             <Dialog open={pending !== null} onOpenChange={(open) => !open && setPending(null)}>
-                <DialogContent className="max-w-md">
+                <DialogContent className="sm:max-w-md">
                     {shownPending && (
                         <>
                             <DialogHeader>

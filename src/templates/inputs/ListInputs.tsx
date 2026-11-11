@@ -3,7 +3,7 @@
 // so removing one does not move focus or typed text onto its neighbour.
 import type * as React from "react";
 
-import { Input } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
     asContactList,
