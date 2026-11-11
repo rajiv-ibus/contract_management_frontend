@@ -7,7 +7,14 @@ import { EmptyState, Initials, PageHeader, fmtAgo } from "@/components/common";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { Checkbox, Field, Input, Textarea } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useDemo } from "@/demo/store";
@@ -16,18 +23,32 @@ import type { Membership, User } from "@/demo/types";
 function SuperAdminOnly({ children }: { children: ReactNode }) {
     const { permissions } = useDemo();
     if (!permissions.isSuperAdmin) {
-        return <EmptyState icon={Lock} title="Super Admin only" text="Switch the demo to Super Admin to see this screen." />;
+        return (
+            <EmptyState
+                icon={Lock}
+                title="Super Admin only"
+                text="Switch the demo to Super Admin to see this screen."
+            />
+        );
     }
     return <>{children}</>;
 }
 
 const userStatusBadge = (s: User["status"]) =>
-    s === "ACTIVE" ? <Badge variant="approved">Active</Badge> : s === "INVITED" ? <Badge variant="pending">Invited</Badge> : <Badge variant="muted">Deactivated</Badge>;
+    s === "ACTIVE" ? (
+        <Badge variant="approved">Active</Badge>
+    ) : s === "INVITED" ? (
+        <Badge variant="pending">Invited</Badge>
+    ) : (
+        <Badge variant="muted">Deactivated</Badge>
+    );
 
 function AccessEditor({ user, onClose }: { user: User; onClose: () => void }) {
     const { projects, memberships, actions } = useDemo();
     const [rows, setRows] = useState<Record<string, Membership | undefined>>(() =>
-        Object.fromEntries(projects.map((p) => [p.id, memberships.find((m) => m.userId === user.id && m.projectId === p.id)])),
+        Object.fromEntries(
+            projects.map((p) => [p.id, memberships.find((m) => m.userId === user.id && m.projectId === p.id)]),
+        ),
     );
 
     function toggle(projectId: string, key: "access" | "isAdmin" | "canMake" | "canCheck", value: boolean) {
@@ -36,7 +57,9 @@ function AccessEditor({ user, onClose }: { user: User; onClose: () => void }) {
             if (key === "access") {
                 return {
                     ...all,
-                    [projectId]: value ? { userId: user.id, projectId, isAdmin: false, canMake: true, canCheck: false } : undefined,
+                    [projectId]: value
+                        ? { userId: user.id, projectId, isAdmin: false, canMake: true, canCheck: false }
+                        : undefined,
                 };
             }
             if (!current) return all;
@@ -48,7 +71,10 @@ function AccessEditor({ user, onClose }: { user: User; onClose: () => void }) {
     }
 
     function save() {
-        actions.setUserMemberships(user.id, Object.values(rows).filter((m): m is Membership => !!m));
+        actions.setUserMemberships(
+            user.id,
+            Object.values(rows).filter((m): m is Membership => !!m),
+        );
         toast.success(`Project access updated for ${user.name}.`);
         onClose();
     }
@@ -59,8 +85,8 @@ function AccessEditor({ user, onClose }: { user: User; onClose: () => void }) {
                 <DialogHeader>
                     <DialogTitle>Project access · {user.name}</DialogTitle>
                     <DialogDescription>
-                        Choose which projects {user.name.split(" ")[0]} can open and the role in each. A project Admin is always a
-                        Checker. Every member needs at least Maker or Checker.
+                        Choose which projects {user.name.split(" ")[0]} can open and the role in each. A project Admin
+                        is always a Checker. Every member needs at least Maker or Checker.
                     </DialogDescription>
                 </DialogHeader>
                 <Table>
@@ -83,13 +109,24 @@ function AccessEditor({ user, onClose }: { user: User; onClose: () => void }) {
                                         <p className="text-xs text-muted-foreground">{p.code}</p>
                                     </TableCell>
                                     <TableCell className="text-center">
-                                        <Checkbox checked={!!m} onCheckedChange={(v) => toggle(p.id, "access", v === true)} />
+                                        <Checkbox
+                                            checked={!!m}
+                                            onCheckedChange={(v) => toggle(p.id, "access", v === true)}
+                                        />
                                     </TableCell>
                                     <TableCell className="text-center">
-                                        <Checkbox disabled={!m} checked={!!m?.isAdmin} onCheckedChange={(v) => toggle(p.id, "isAdmin", v === true)} />
+                                        <Checkbox
+                                            disabled={!m}
+                                            checked={!!m?.isAdmin}
+                                            onCheckedChange={(v) => toggle(p.id, "isAdmin", v === true)}
+                                        />
                                     </TableCell>
                                     <TableCell className="text-center">
-                                        <Checkbox disabled={!m} checked={!!m?.canMake} onCheckedChange={(v) => toggle(p.id, "canMake", v === true)} />
+                                        <Checkbox
+                                            disabled={!m}
+                                            checked={!!m?.canMake}
+                                            onCheckedChange={(v) => toggle(p.id, "canMake", v === true)}
+                                        />
                                     </TableCell>
                                     <TableCell className="text-center">
                                         <Checkbox
@@ -120,7 +157,10 @@ export function TeamPage() {
     const [editing, setEditing] = useState<User | null>(null);
 
     const rows = users.filter(
-        (u) => !query || u.name.toLowerCase().includes(query.toLowerCase()) || u.email.toLowerCase().includes(query.toLowerCase()),
+        (u) =>
+            !query ||
+            u.name.toLowerCase().includes(query.toLowerCase()) ||
+            u.email.toLowerCase().includes(query.toLowerCase()),
     );
 
     const access = (u: User) =>
@@ -128,7 +168,9 @@ export function TeamPage() {
             .filter((m) => m.userId === u.id)
             .map((m) => {
                 const p = projects.find((x) => x.id === m.projectId);
-                const roles = [m.isAdmin && "Admin", m.canMake && "Maker", m.canCheck && !m.isAdmin && "Checker"].filter(Boolean).join(" + ");
+                const roles = [m.isAdmin && "Admin", m.canMake && "Maker", m.canCheck && !m.isAdmin && "Checker"]
+                    .filter(Boolean)
+                    .join(" + ");
                 return `${p?.name}: ${roles}`;
             });
 
@@ -149,7 +191,12 @@ export function TeamPage() {
                 <div className="border-b p-3">
                     <div className="relative max-w-sm">
                         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input placeholder="Search name or email" className="pl-9" value={query} onChange={(e) => setQuery(e.target.value)} />
+                        <Input
+                            placeholder="Search name or email"
+                            className="pl-9"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                        />
                     </div>
                 </div>
                 <Table>
@@ -179,17 +226,31 @@ export function TeamPage() {
                                 <TableCell>{userStatusBadge(u.status)}</TableCell>
                                 <TableCell>
                                     <div className="flex flex-col gap-0.5 text-xs">
-                                        {access(u).length ? access(u).map((a) => <span key={a}>{a}</span>) : <span className="text-muted-foreground">No projects</span>}
+                                        {access(u).length ? (
+                                            access(u).map((a) => <span key={a}>{a}</span>)
+                                        ) : (
+                                            <span className="text-muted-foreground">No projects</span>
+                                        )}
                                     </div>
                                 </TableCell>
-                                <TableCell className="text-muted-foreground">{u.lastLoginAt ? fmtAgo(u.lastLoginAt) : "Never"}</TableCell>
+                                <TableCell className="text-muted-foreground">
+                                    {u.lastLoginAt ? fmtAgo(u.lastLoginAt) : "Never"}
+                                </TableCell>
                                 <TableCell>
                                     <div className="flex justify-end gap-1.5">
                                         <Button variant="outline" size="sm" onClick={() => setEditing(u)}>
                                             <Pencil /> Access
                                         </Button>
                                         {u.status === "INVITED" && (
-                                            <Button variant="ghost" size="sm" onClick={() => toast.success(`New invite link sent to ${u.email}. The old link no longer works.`)}>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() =>
+                                                    toast.success(
+                                                        `New invite link sent to ${u.email}. The old link no longer works.`,
+                                                    )
+                                                }
+                                            >
                                                 Resend invite
                                             </Button>
                                         )}
@@ -261,7 +322,12 @@ export function InvitePage() {
                     <Field label="Full name" required htmlFor="name">
                         <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
                     </Field>
-                    <Field label="Email" required htmlFor="email" hint="The invite link is valid for 48 hours and works once.">
+                    <Field
+                        label="Email"
+                        required
+                        htmlFor="email"
+                        hint="The invite link is valid for 48 hours and works once."
+                    >
                         <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
                     </Field>
                     {error && <p className="text-sm text-destructive">{error}</p>}
@@ -314,7 +380,11 @@ export function ProjectsPage() {
                                         <Building2 className="size-4 text-muted-foreground" />
                                         <CardTitle>{p.name}</CardTitle>
                                     </div>
-                                    {p.active ? <Badge variant="approved">Active</Badge> : <Badge variant="muted">Inactive</Badge>}
+                                    {p.active ? (
+                                        <Badge variant="approved">Active</Badge>
+                                    ) : (
+                                        <Badge variant="muted">Inactive</Badge>
+                                    )}
                                 </div>
                                 <CardDescription>{p.description}</CardDescription>
                             </CardHeader>
@@ -328,7 +398,9 @@ export function ProjectsPage() {
                                     <p className="text-xs text-muted-foreground">Members</p>
                                 </div>
                                 <div>
-                                    <p className="text-lg font-semibold">{documents.filter((d) => d.projectId === p.id).length}</p>
+                                    <p className="text-lg font-semibold">
+                                        {documents.filter((d) => d.projectId === p.id).length}
+                                    </p>
                                     <p className="text-xs text-muted-foreground">Documents</p>
                                 </div>
                             </CardContent>
@@ -354,7 +426,9 @@ export function ProjectsPage() {
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>New project</DialogTitle>
-                        <DialogDescription>After creating it, give users access and choose its Admins on the Team screen.</DialogDescription>
+                        <DialogDescription>
+                            After creating it, give users access and choose its Admins on the Team screen.
+                        </DialogDescription>
                     </DialogHeader>
                     <Field label="Code" required hint="Short, unique, e.g. HOSP">
                         <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
@@ -363,7 +437,10 @@ export function ProjectsPage() {
                         <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                     </Field>
                     <Field label="Description">
-                        <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                        <Textarea
+                            value={form.description}
+                            onChange={(e) => setForm({ ...form, description: e.target.value })}
+                        />
                     </Field>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setOpen(false)}>

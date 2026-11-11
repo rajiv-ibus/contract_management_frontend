@@ -1,25 +1,16 @@
 // In-memory store for the UI prototype. It stands in for the backend API so every screen can be clicked through.
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
+import type { DocumentValues, FieldLibrary } from "@/templates/model";
+
 import * as seed from "./data";
-import type {
-    Category,
-    Comment,
-    ContractDocument,
-    DemoRole,
-    DocumentType,
-    FieldDef,
-    Membership,
-    Metadata,
-    NotificationRecipient,
-    Project,
-    User,
-} from "./types";
+import type { Comment, ContractDocument, DemoRole, Membership, NotificationRecipient, Project, User } from "./types";
 
 let counter = 100;
 const nextId = (prefix: string) => `${prefix}${++counter}`;
 const now = () => new Date().toISOString();
 const fakeHash = () => Array.from({ length: 64 }, () => "0123456789abcdef"[Math.floor(Math.random() * 16)]).join("");
+const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
 
 export interface Permissions {
     isSuperAdmin: boolean;
@@ -30,8 +21,8 @@ export interface Permissions {
 
 export interface DraftInput {
     title: string;
-    typeId: string;
-    metadata: Metadata;
+    typeCode: string;
+    values: DocumentValues;
     fileName?: string;
     fileSizeKb?: number;
 }
@@ -64,8 +55,7 @@ function useDemoState() {
     const [users, setUsers] = useState<User[]>(seed.users);
     const [projects, setProjects] = useState<Project[]>(seed.projects);
     const [memberships, setMemberships] = useState<Membership[]>(seed.memberships);
-    const [categories, setCategories] = useState<Category[]>(seed.categories);
-    const [documentTypes, setDocumentTypes] = useState<DocumentType[]>(seed.documentTypes);
+    const [libraries, setLibraries] = useState<Record<string, FieldLibrary>>(seed.libraries);
     const [recipients, setRecipients] = useState<NotificationRecipient[]>(seed.notificationRecipients);
     const [documents, setDocuments] = useState<ContractDocument[]>(seed.documents);
 
@@ -80,7 +70,9 @@ function useDemoState() {
         canCheck: !!membership?.canCheck,
     };
 
-    const myProjects = projects.filter((p) => memberships.some((m) => m.userId === currentUserId && m.projectId === p.id));
+    const myProjects = projects.filter((p) =>
+        memberships.some((m) => m.userId === currentUserId && m.projectId === p.id),
+    );
 
     function setRole(next: DemoRole) {
         const nextProject = seed.demoPersonas[next].projectId;
@@ -100,14 +92,24 @@ function useDemoState() {
 
     const log = (action: string, detail?: string) => ({ at: now(), byId: currentUserId, action, detail });
 
+    /** <type>/<year>/<4-digit number>: one sequence per type per year, one above the highest used, never reissued. */
+    function newInstanceId(typeCode: string) {
+        const prefix = `${typeCode}/${new Date().getFullYear()}/`;
+        const highest = documents
+            .map((d) => d.instanceId)
+            .filter((id): id is string => !!id && id.startsWith(prefix))
+            .reduce((max, id) => Math.max(max, Number(id.slice(prefix.length)) || 0), 0);
+        return `${prefix}${String(highest + 1).padStart(4, "0")}`;
+    }
+
     const actions = {
         saveDraft(id: string | null, input: DraftInput): string {
             if (id) {
                 updateDoc(id, (d) => ({
                     ...d,
                     title: input.title,
-                    typeId: input.typeId,
-                    metadata: input.metadata,
+                    typeCode: input.typeCode,
+                    values: input.values,
                     draftFileName: input.fileName ?? d.draftFileName,
                     draftFileSizeKb: input.fileSizeKb ?? d.draftFileSizeKb,
                     updatedAt: now(),
@@ -120,10 +122,10 @@ function useDemoState() {
                 {
                     id: newId,
                     projectId,
-                    typeId: input.typeId,
+                    typeCode: input.typeCode,
                     title: input.title,
                     status: "DRAFT",
-                    metadata: input.metadata,
+                    values: input.values,
                     draftFileName: input.fileName,
                     draftFileSizeKb: input.fileSizeKb,
                     createdById: currentUserId,
@@ -144,6 +146,7 @@ function useDemoState() {
                 return {
                     ...d,
                     status: "APPROVAL_PENDING",
+                    instanceId: d.instanceId ?? newInstanceId(d.typeCode),
                     currentVersionNo: no,
                     restoredFromVersionNo: undefined,
                     updatedAt: now(),
@@ -153,7 +156,7 @@ function useDemoState() {
                             no,
                             submittedBy: currentUserId,
                             submittedAt: now(),
-                            metadata: d.metadata,
+                            values: clone(d.values),
                             fileName: d.draftFileName ?? "contract.pdf",
                             fileSizeKb: d.draftFileSizeKb ?? 1000,
                             fileHash: fakeHash(),
@@ -165,11 +168,14 @@ function useDemoState() {
             });
         },
 
-        approve(id: string, text: string) {
+        approve(id: string, text: string, attestedItems: string[]) {
             updateDoc(id, (d) => ({
                 ...d,
                 status: "APPROVED",
                 approvedVersionNo: d.currentVersionNo,
+                attestation: attestedItems.length
+                    ? { byId: currentUserId, at: now(), items: attestedItems }
+                    : d.attestation,
                 updatedAt: now(),
                 comments: text.trim()
                     ? [...d.comments, decisionComment(d, "APPROVAL", text, currentUserId)]
@@ -221,10 +227,10 @@ function useDemoState() {
                 {
                     id: newId,
                     projectId: source.projectId,
-                    typeId: source.typeId,
+                    typeCode: source.typeCode,
                     title: `${source.title} (new)`,
                     status: "DRAFT",
-                    metadata: { ...(approved?.metadata ?? source.metadata) },
+                    values: clone(approved?.values ?? source.values),
                     draftFileName: approved?.fileName,
                     draftFileSizeKb: approved?.fileSizeKb,
                     createdById: currentUserId,
@@ -233,7 +239,7 @@ function useDemoState() {
                     updatedAt: now(),
                     versions: [],
                     comments: [],
-                    activity: [log("Created from invalid document", String(source.metadata.contractIdentifier ?? ""))],
+                    activity: [log("Created from invalid document", source.instanceId)],
                 },
                 ...all,
             ]);
@@ -245,11 +251,11 @@ function useDemoState() {
                 const v = d.versions.find((x) => x.no === versionNo)!;
                 return {
                     ...d,
-                    metadata: { ...v.metadata },
+                    values: clone(v.values),
                     draftFileName: v.fileName,
                     draftFileSizeKb: v.fileSizeKb,
-                    updatedAt: now(),
                     restoredFromVersionNo: versionNo,
+                    updatedAt: now(),
                     activity: [...d.activity, log(`Restored version ${versionNo} to draft`)],
                 };
             });
@@ -260,7 +266,15 @@ function useDemoState() {
                 ...d,
                 comments: [
                     ...d.comments,
-                    { id: nextId("m"), versionNo, authorId: currentUserId, type: "COMMENT", text, createdAt: now(), replyToId },
+                    {
+                        id: nextId("m"),
+                        versionNo,
+                        authorId: currentUserId,
+                        type: "COMMENT",
+                        text,
+                        createdAt: now(),
+                        replyToId,
+                    },
                 ],
             }));
         },
@@ -293,37 +307,9 @@ function useDemoState() {
             setProjects((all) => all.map((p) => (p.id === id ? { ...p, ...change } : p)));
         },
 
-        addCategory(code: string, name: string) {
-            setCategories((all) => [...all, { id: nextId("c"), projectId, code, name }]);
-        },
-
-        addDocumentType(categoryId: string, code: string, name: string, fields: FieldDef[]) {
-            setDocumentTypes((all) => [
-                ...all,
-                {
-                    id: nextId("t"),
-                    projectId,
-                    categoryId,
-                    code,
-                    name,
-                    activeTemplateNo: 1,
-                    templates: [{ no: 1, createdAt: now(), createdBy: currentUserId, fields }],
-                },
-            ]);
-        },
-
-        addTemplateVersion(typeId: string, fields: FieldDef[]) {
-            setDocumentTypes((all) =>
-                all.map((t) => {
-                    if (t.id !== typeId) return t;
-                    const no = t.templates.length + 1;
-                    return {
-                        ...t,
-                        activeTemplateNo: no,
-                        templates: [...t.templates, { no, createdAt: now(), createdBy: currentUserId, fields }],
-                    };
-                }),
-            );
+        /** Saved library versions are frozen: this replaces the project's active library with the next version. */
+        saveLibrary(project: string, library: FieldLibrary) {
+            setLibraries((all) => ({ ...all, [project]: library }));
         },
 
         addRecipient(email: string, name?: string) {
@@ -346,20 +332,14 @@ function useDemoState() {
         users,
         projects,
         memberships,
-        categories,
-        documentTypes,
+        libraries,
         recipients,
         documents,
         actions,
     };
 }
 
-function decisionComment(
-    d: ContractDocument,
-    type: Comment["type"],
-    text: string,
-    authorId: string,
-): Comment {
+function decisionComment(d: ContractDocument, type: Comment["type"], text: string, authorId: string): Comment {
     return { id: nextId("m"), versionNo: d.currentVersionNo!, authorId, type, text, createdAt: now() };
 }
 
@@ -380,14 +360,20 @@ export function useDemo() {
 
 /** Lookups that most screens need. */
 export function useLookups() {
-    const { users, documentTypes, categories, projects } = useDemo();
+    const { users, libraries, projects } = useDemo();
     return useMemo(
         () => ({
             userName: (id?: string) => users.find((u) => u.id === id)?.name ?? "—",
-            docType: (id: string) => documentTypes.find((t) => t.id === id),
-            categoryName: (id: string) => categories.find((c) => c.id === id)?.name ?? "—",
+            libraryOf: (projectId: string) => libraries[projectId],
+            docType: (projectId: string, code: string) =>
+                libraries[projectId]?.documentTypes.find((t) => t.code === code),
+            familyName: (projectId: string, code: string) => {
+                const lib = libraries[projectId];
+                const type = lib?.documentTypes.find((t) => t.code === code);
+                return lib?.families.find((f) => f.code === type?.family)?.name ?? "—";
+            },
             projectName: (id: string) => projects.find((p) => p.id === id)?.name ?? "—",
         }),
-        [users, documentTypes, categories, projects],
+        [users, libraries, projects],
     );
 }

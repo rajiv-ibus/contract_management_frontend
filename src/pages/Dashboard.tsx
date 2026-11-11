@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { EmptyState, PageHeader, StatusBadge, fmtAgo, statusMeta } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { counterpartyName } from "@/demo/docs";
 import { useDemo, useLookups } from "@/demo/store";
 import type { ContractDocument, WorkflowStatus } from "@/demo/types";
 import { cn } from "@/lib/utils";
@@ -12,6 +13,7 @@ const statusOrder: WorkflowStatus[] = ["DRAFT", "APPROVAL_PENDING", "REJECTED", 
 
 function DocRow({ doc }: { doc: ContractDocument }) {
     const { userName, docType } = useLookups();
+    const type = docType(doc.projectId, doc.typeCode);
     return (
         <Link
             to={`/documents/${doc.id}`}
@@ -20,8 +22,8 @@ function DocRow({ doc }: { doc: ContractDocument }) {
             <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{doc.title}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                    {String(doc.metadata.contractIdentifier ?? "")} · {docType(doc.typeId)?.name} · by{" "}
-                    {userName(doc.createdById)} · {fmtAgo(doc.updatedAt)}
+                    {type?.name} · {counterpartyName(doc.values, type)} · by {userName(doc.createdById)} ·{" "}
+                    {fmtAgo(doc.updatedAt)}
                 </p>
             </div>
             <StatusBadge status={doc.status} />
@@ -34,7 +36,13 @@ export function DashboardPage() {
     const { userName, projectName } = useLookups();
 
     if (myProjects.length === 0) {
-        return <EmptyState icon={ClipboardCheck} title="You are not mapped to any project yet" text="Ask a Super Admin to give you project access." />;
+        return (
+            <EmptyState
+                icon={ClipboardCheck}
+                title="You are not mapped to any project yet"
+                text="Ask a Super Admin to give you project access."
+            />
+        );
     }
 
     const projectDocs = documents.filter((d) => d.projectId === projectId);
@@ -46,7 +54,9 @@ export function DashboardPage() {
         return d.createdById !== currentUser.id && submitter !== currentUser.id;
     });
     const myWork = projectDocs.filter(
-        (d) => (d.status === "DRAFT" || d.status === "REJECTED") && (d.createdById === currentUser.id || permissions.canMake),
+        (d) =>
+            (d.status === "DRAFT" || d.status === "REJECTED") &&
+            (d.createdById === currentUser.id || permissions.canMake),
     );
     const recent = projectDocs
         .flatMap((d) => d.activity.map((a) => ({ ...a, doc: d })))
@@ -105,7 +115,10 @@ export function DashboardPage() {
                                 <ClipboardCheck className="size-4 text-status-pending" />
                                 Waiting for your approval
                             </CardTitle>
-                            <Link to="/documents?status=APPROVAL_PENDING" className="text-sm text-primary hover:underline">
+                            <Link
+                                to="/documents?status=APPROVAL_PENDING"
+                                className="text-sm text-primary hover:underline"
+                            >
                                 View all
                             </Link>
                         </CardHeader>
@@ -113,7 +126,11 @@ export function DashboardPage() {
                             {awaitingMe.length ? (
                                 awaitingMe.map((d) => <DocRow key={d.id} doc={d} />)
                             ) : (
-                                <EmptyState icon={ClipboardCheck} title="Nothing to review" text="Documents submitted by others will appear here." />
+                                <EmptyState
+                                    icon={ClipboardCheck}
+                                    title="Nothing to review"
+                                    text="Documents submitted by others will appear here."
+                                />
                             )}
                         </CardContent>
                     </Card>
@@ -134,7 +151,11 @@ export function DashboardPage() {
                             {myWork.length ? (
                                 myWork.map((d) => <DocRow key={d.id} doc={d} />)
                             ) : (
-                                <EmptyState icon={FilePen} title="No drafts" text="Start a new document to see it here." />
+                                <EmptyState
+                                    icon={FilePen}
+                                    title="No drafts"
+                                    text="Start a new document to see it here."
+                                />
                             )}
                         </CardContent>
                     </Card>
@@ -153,7 +174,8 @@ export function DashboardPage() {
                                 <li key={i} className="flex items-center gap-3 py-2.5 text-sm">
                                     <span className="w-28 shrink-0 text-xs text-muted-foreground">{fmtAgo(a.at)}</span>
                                     <span className="min-w-0 flex-1 truncate">
-                                        <span className="font-medium">{userName(a.byId)}</span> {a.action.toLowerCase()} ·{" "}
+                                        <span className="font-medium">{userName(a.byId)}</span> {a.action.toLowerCase()}{" "}
+                                        ·{" "}
                                         <Link to={`/documents/${a.doc.id}`} className="text-primary hover:underline">
                                             {a.doc.title}
                                         </Link>

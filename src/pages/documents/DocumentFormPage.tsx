@@ -1,31 +1,49 @@
 import { ArrowLeft, Info, Lock, Save, Send } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
 import { EmptyState, PageHeader } from "@/components/common";
-import { MetadataForm, PdfDropzone, fieldErrors } from "@/components/metadata";
+import { PdfDropzone } from "@/components/PdfDropzone";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, Input, NativeSelect } from "@/components/ui/form";
-import { useDemo } from "@/demo/store";
-import type { Metadata } from "@/demo/types";
+import { deriveContext, documentIssues, nonBlocking, submitLibrary } from "@/demo/docs";
+import { useDemo, useLookups } from "@/demo/store";
+import { completion, composeFields, countByTier, emptyValues } from "@/templates/engine";
+import type { DocumentValues } from "@/templates/model";
+import { TemplateForm } from "@/templates/TemplateForm";
 
 export function DocumentFormPage() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { documents, documentTypes, categories, projectId, permissions, actions } = useDemo();
+    const { documents, libraries, projectId, permissions, currentUser, actions } = useDemo();
+    const { userName } = useLookups();
     const existing = id ? documents.find((d) => d.id === id) : undefined;
 
-    const projectTypes = documentTypes.filter((t) => t.projectId === projectId);
-    const [typeId, setTypeId] = useState(existing?.typeId ?? "");
+    const library = useMemo(() => submitLibrary(libraries[projectId]), [libraries, projectId]);
+    const [typeCode, setTypeCode] = useState(existing?.typeCode ?? "");
     const [title, setTitle] = useState(existing?.title ?? "");
-    const [metadata, setMetadata] = useState<Metadata>(existing?.metadata ?? {});
+    const [values, setValues] = useState<DocumentValues>(existing?.values ?? emptyValues());
     const [file, setFile] = useState<{ name?: string; sizeKb?: number }>({
         name: existing?.draftFileName,
         sizeKb: existing?.draftFileSizeKb,
     });
     const [showErrors, setShowErrors] = useState(false);
+
+    const type = library.documentTypes.find((t) => t.code === typeCode);
+    const fields = useMemo(
+        () => (type ? composeFields(library, typeCode, values.custom) : []),
+        [library, type, typeCode, values.custom],
+    );
+    const allIssues = useMemo(
+        () => documentIssues(libraries[projectId], typeCode, values),
+        [libraries, projectId, typeCode, values],
+    );
+    const counts = countByTier(allIssues);
+    const progress = completion(fields, values.fields);
+    // Required-field errors only appear after the first attempt to submit; warnings and notes show as you type.
+    const issues = showErrors ? allIssues : nonBlocking(allIssues);
 
     if (!permissions.canMake) {
         return <EmptyState icon={Lock} title="Only Makers can create or edit documents" />;
@@ -40,32 +58,50 @@ export function DocumentFormPage() {
         );
     }
 
-    const type = projectTypes.find((t) => t.id === typeId);
-    const fields = type?.templates.find((t) => t.no === type.activeTemplateNo)?.fields ?? [];
-    const errors = fieldErrors(fields, metadata);
     const sourceDoc = existing?.createdFromId ? documents.find((d) => d.id === existing.createdFromId) : undefined;
+    const derive = deriveContext(
+        { instanceId: existing?.instanceId, typeCode, status: existing?.status ?? "DRAFT", attestation: undefined },
+        { preparedBy: existing ? userName(existing.createdById) : currentUser.name },
+    );
+
+    function changeType(next: string) {
+        const nextType = library.documentTypes.find((t) => t.code === next);
+        const roles = new Set(nextType?.parties.map((r) => r.role));
+        setTypeCode(next);
+        setValues((v) => ({ ...v, parties: v.parties.filter((p) => roles.has(p.role)) }));
+    }
 
     function save(andSubmit: boolean) {
-        if (!typeId || !title.trim()) {
+        if (!typeCode || !title.trim()) {
             setShowErrors(true);
-            toast.error("Choose a document type and enter a title first.");
+            toast.error("Choose a document type and enter a name first.");
             return;
         }
-        if (andSubmit && (Object.keys(errors).length || !file.name)) {
+        if (andSubmit) {
             setShowErrors(true);
-            toast.error("Fill in the required details and upload the PDF before submitting.");
-            return;
+            if (counts.BLOCK > 0 || !file.name) {
+                toast.error(
+                    !file.name && counts.BLOCK === 0
+                        ? "Upload the contract PDF before submitting."
+                        : `${counts.BLOCK + (file.name ? 0 : 1)} things must be fixed before this can be submitted.`,
+                );
+                return;
+            }
         }
         const docId = actions.saveDraft(existing?.id ?? null, {
             title: title.trim(),
-            typeId,
-            metadata,
+            typeCode,
+            values,
             fileName: file.name,
             fileSizeKb: file.sizeKb,
         });
         if (andSubmit) {
             actions.submit(docId);
-            toast.success("Submitted for approval. The project's Checkers have been notified.");
+            toast.success(
+                counts.WARN > 0
+                    ? `Submitted. The Checker will see ${counts.WARN} warning${counts.WARN === 1 ? "" : "s"}.`
+                    : "Submitted for approval. The project's Checkers have been notified.",
+            );
         } else {
             toast.success("Draft saved.");
         }
@@ -83,6 +119,16 @@ export function DocumentFormPage() {
             <PageHeader
                 title={existing ? "Edit draft" : "New document"}
                 description="Upload the contract PDF and enter its details. You can save a draft and submit later."
+                actions={
+                    <>
+                        <Button variant="outline" onClick={() => save(false)}>
+                            <Save /> Save draft
+                        </Button>
+                        <Button onClick={() => save(true)}>
+                            <Send /> Submit for approval
+                        </Button>
+                    </>
+                }
             />
 
             {sourceDoc && (
@@ -91,15 +137,15 @@ export function DocumentFormPage() {
                     <span>
                         Created from invalid document{" "}
                         <Link to={`/documents/${sourceDoc.id}`} className="font-medium text-primary hover:underline">
-                            {String(sourceDoc.metadata.contractIdentifier)} · {sourceDoc.title}
+                            {sourceDoc.instanceId} · {sourceDoc.title}
                         </Link>
                         . Its reference will appear in this document's Summary Reference Sheet.
                     </span>
                 </div>
             )}
 
-            <div className="grid gap-6 lg:grid-cols-3">
-                <div className="flex flex-col gap-6 lg:col-span-2">
+            <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
+                <div className="flex min-w-0 flex-col gap-6">
                     <Card>
                         <CardHeader>
                             <CardTitle>Document</CardTitle>
@@ -108,34 +154,32 @@ export function DocumentFormPage() {
                             <Field label="Document type" required htmlFor="type">
                                 <NativeSelect
                                     id="type"
-                                    value={typeId}
-                                    aria-invalid={showErrors && !typeId}
-                                    onChange={(e) => setTypeId(e.target.value)}
+                                    value={typeCode}
+                                    aria-invalid={showErrors && !typeCode}
+                                    onChange={(e) => changeType(e.target.value)}
                                     disabled={!!existing?.versions.length}
                                 >
                                     <option value="">Select a type…</option>
-                                    {categories
-                                        .filter((c) => c.projectId === projectId)
-                                        .map((c) => (
-                                            <optgroup key={c.id} label={c.name}>
-                                                {projectTypes
-                                                    .filter((t) => t.categoryId === c.id)
-                                                    .map((t) => (
-                                                        <option key={t.id} value={t.id}>
-                                                            {t.name}
-                                                        </option>
-                                                    ))}
-                                            </optgroup>
-                                        ))}
+                                    {library.families.map((family) => (
+                                        <optgroup key={family.code} label={family.name}>
+                                            {library.documentTypes
+                                                .filter((t) => t.family === family.code)
+                                                .map((t) => (
+                                                    <option key={t.code} value={t.code}>
+                                                        {t.name}
+                                                    </option>
+                                                ))}
+                                        </optgroup>
+                                    ))}
                                 </NativeSelect>
                             </Field>
-                            <Field label="Title" required htmlFor="title" hint="A short name shown in lists and emails">
+                            <Field label="Name" required htmlFor="title" hint="Shown in lists and emails">
                                 <Input
                                     id="title"
                                     value={title}
                                     aria-invalid={showErrors && !title.trim()}
                                     onChange={(e) => setTitle(e.target.value)}
-                                    placeholder="e.g. Grand Residency Hotel Lease"
+                                    placeholder="e.g. Chennai hub warehouse services"
                                 />
                             </Field>
                             <div className="sm:col-span-2">
@@ -152,57 +196,79 @@ export function DocumentFormPage() {
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Contract details</CardTitle>
-                            <CardDescription>
-                                {type
-                                    ? `Fields for ${type.name} (template v${type.activeTemplateNo}). These go into the Summary Reference Sheet.`
-                                    : "Choose a document type to see its fields."}
-                            </CardDescription>
-                        </CardHeader>
-                        {type && (
+                    {type ? (
+                        <TemplateForm
+                            library={library}
+                            typeCode={typeCode}
+                            values={values}
+                            onChange={setValues}
+                            issues={issues}
+                            derive={derive}
+                        />
+                    ) : (
+                        <Card>
                             <CardContent>
-                                <MetadataForm
-                                    fields={fields}
-                                    values={metadata}
-                                    onChange={setMetadata}
-                                    errors={showErrors ? errors : {}}
-                                />
+                                <p className="text-sm text-muted-foreground">
+                                    Choose a document type to see its parties and fields.
+                                </p>
                             </CardContent>
-                        )}
-                        <CardFooter className="justify-end">
-                            <Button variant="outline" onClick={() => save(false)}>
-                                <Save /> Save draft
-                            </Button>
-                            <Button onClick={() => save(true)}>
-                                <Send /> Submit for approval
-                            </Button>
-                        </CardFooter>
-                    </Card>
+                        </Card>
+                    )}
                 </div>
 
-                <Card className="h-fit">
-                    <CardHeader>
-                        <CardTitle className="text-sm">What happens next</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-3">
-                        <ol className="flex flex-col gap-3 text-sm text-muted-foreground">
-                            <li>
-                                <span className="font-medium text-foreground">1. Save draft.</span> Any Maker in this
-                                project can keep editing it.
-                            </li>
-                            <li>
-                                <span className="font-medium text-foreground">2. Submit.</span> The details are frozen
-                                as a new version and the project's Checkers are emailed.
-                            </li>
-                            <li>
-                                <span className="font-medium text-foreground">3. Review.</span> A Checker approves it or
-                                rejects it with a comment. A rejected document comes back to draft for correction.
-                            </li>
-                        </ol>
-                    </CardContent>
-                </Card>
+                <div className="flex flex-col gap-4 lg:sticky lg:top-20 lg:self-start">
+                    {type && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-sm">Progress</CardTitle>
+                            </CardHeader>
+                            <CardContent className="flex flex-col gap-3 pt-3 text-sm">
+                                <div>
+                                    <div className="mb-1 flex justify-between text-xs text-muted-foreground">
+                                        <span>Mandatory fields answered</span>
+                                        <span>
+                                            {progress.done} / {progress.total}
+                                        </span>
+                                    </div>
+                                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                                        <div
+                                            className="h-full bg-primary transition-all"
+                                            style={{
+                                                width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`,
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                                <ul className="flex flex-col gap-1 text-xs">
+                                    <li className="text-destructive">{counts.BLOCK} must be fixed to submit</li>
+                                    <li className="text-amber-700">{counts.WARN} warnings for the Checker</li>
+                                    <li className="text-sky-700">{counts.FLAG} notes for the signer</li>
+                                </ul>
+                            </CardContent>
+                        </Card>
+                    )}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-sm">What happens next</CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-3">
+                            <ol className="flex flex-col gap-3 text-sm text-muted-foreground">
+                                <li>
+                                    <span className="font-medium text-foreground">1. Save draft.</span> Any Maker in
+                                    this project can keep editing it.
+                                </li>
+                                <li>
+                                    <span className="font-medium text-foreground">2. Submit.</span> The details are
+                                    frozen as a new version and the project's Checkers are emailed.
+                                </li>
+                                <li>
+                                    <span className="font-medium text-foreground">3. Review.</span> A Checker approves
+                                    it or rejects it with a comment. A rejected document comes back to draft.
+                                </li>
+                            </ol>
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
         </>
     );

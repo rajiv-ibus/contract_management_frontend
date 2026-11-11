@@ -3,52 +3,67 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
-import { PageHeader, StatusBadge, fmtDate } from "@/components/common";
+import { PageHeader, StatusBadge } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { counterpartyName } from "@/demo/docs";
 import { useDemo, useLookups } from "@/demo/store";
-import type { ContractDocument, Metadata } from "@/demo/types";
+import type { ContractDocument } from "@/demo/types";
+import { formatValue } from "@/templates/engine";
+import type { DocumentValues, FieldLibrary } from "@/templates/model";
 
-const pretty = (v: unknown) =>
-    v ? String(v).replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase()) : "—";
+/** Shows a field's value as text, using the library's definition for the type. Empty when the field is not on the document. */
+function show(library: FieldLibrary, key: string, values: DocumentValues): string {
+    const field = library.fields.find((f) => f.key === key);
+    return field ? formatValue(field, values.fields[key]) || "—" : "—";
+}
 
-function ReportTable({ rows, metadataOf }: { rows: ContractDocument[]; metadataOf: (d: ContractDocument) => Metadata }) {
+function ReportTable({
+    rows,
+    valuesOf,
+    library,
+}: {
+    rows: ContractDocument[];
+    valuesOf: (d: ContractDocument) => DocumentValues;
+    library: FieldLibrary;
+}) {
     const { docType } = useLookups();
     return (
         <Table>
             <TableHeader>
                 <TableRow>
-                    <TableHead>Contract ID</TableHead>
+                    <TableHead>Instance ID</TableHead>
                     <TableHead>Document</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Counterparty</TableHead>
-                    <TableHead>Legal entity</TableHead>
-                    <TableHead>Start</TableHead>
-                    <TableHead>End</TableHead>
-                    <TableHead>Pricing</TableHead>
+                    <TableHead>Effective date</TableHead>
+                    <TableHead>Term</TableHead>
                     <TableHead>Status</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {rows.map((d) => {
-                    const m = metadataOf(d);
+                    const values = valuesOf(d);
+                    const type = docType(d.projectId, d.typeCode);
                     return (
                         <TableRow key={d.id}>
-                            <TableCell className="font-mono text-xs">{String(m.contractIdentifier ?? "—")}</TableCell>
+                            <TableCell className="font-mono text-xs">{d.instanceId ?? "—"}</TableCell>
                             <TableCell>
                                 <Link to={`/documents/${d.id}`} className="font-medium text-primary hover:underline">
                                     {d.title}
                                 </Link>
                             </TableCell>
-                            <TableCell className="text-muted-foreground">{docType(d.typeId)?.name}</TableCell>
-                            <TableCell>{String(m.counterpartyEntity ?? "—")}</TableCell>
-                            <TableCell>{String(m.legalEntity ?? "—")}</TableCell>
-                            <TableCell className="whitespace-nowrap">{fmtDate(m.startDate as string | undefined)}</TableCell>
-                            <TableCell className="whitespace-nowrap">{fmtDate(m.endDate as string | undefined)}</TableCell>
-                            <TableCell>{pretty(m.pricingModel)}</TableCell>
+                            <TableCell className="text-muted-foreground">{type?.name}</TableCell>
+                            <TableCell>{counterpartyName(values, type)}</TableCell>
+                            <TableCell className="whitespace-nowrap">
+                                {show(library, "effective_date", values)}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap">
+                                {show(library, "term_duration", values)}
+                            </TableCell>
                             <TableCell>
                                 <StatusBadge status={d.status} />
                             </TableCell>
@@ -61,13 +76,17 @@ function ReportTable({ rows, metadataOf }: { rows: ContractDocument[]; metadataO
 }
 
 export function ReportsPage() {
-    const { documents, projectId, documentTypes } = useDemo();
-    const [typeId, setTypeId] = useState("");
+    const { documents, projectId, libraries } = useDemo();
+    const library = libraries[projectId];
+    const [typeCode, setTypeCode] = useState("");
     const [includeInvalid, setIncludeInvalid] = useState(false);
 
-    const projectDocs = documents.filter((d) => d.projectId === projectId && (!typeId || d.typeId === typeId));
-    const approved = projectDocs.filter((d) => d.approvedVersionNo && (d.status === "APPROVED" || (includeInvalid && d.status === "INVALID")));
-    const approvedMetadata = (d: ContractDocument) => d.versions.find((v) => v.no === d.approvedVersionNo)?.metadata ?? d.metadata;
+    const projectDocs = documents.filter((d) => d.projectId === projectId && (!typeCode || d.typeCode === typeCode));
+    const approved = projectDocs.filter(
+        (d) => d.approvedVersionNo && (d.status === "APPROVED" || (includeInvalid && d.status === "INVALID")),
+    );
+    const approvedValues = (d: ContractDocument) =>
+        d.versions.find((v) => v.no === d.approvedVersionNo)?.values ?? d.values;
 
     return (
         <>
@@ -75,22 +94,23 @@ export function ReportsPage() {
                 title="Reports"
                 description="Contract details across the project. Approved figures always come from the approved version."
                 actions={
-                    <Button variant="outline" onClick={() => toast("In the real app this exports the report to Excel.")}>
+                    <Button
+                        variant="outline"
+                        onClick={() => toast("In the real app this exports the report to Excel.")}
+                    >
                         <Download /> Export
                     </Button>
                 }
             />
             <div className="mb-4 flex flex-wrap items-end gap-3">
-                <div className="w-60">
-                    <NativeSelect value={typeId} onChange={(e) => setTypeId(e.target.value)}>
+                <div className="w-64">
+                    <NativeSelect value={typeCode} onChange={(e) => setTypeCode(e.target.value)}>
                         <option value="">All document types</option>
-                        {documentTypes
-                            .filter((t) => t.projectId === projectId)
-                            .map((t) => (
-                                <option key={t.id} value={t.id}>
-                                    {t.name}
-                                </option>
-                            ))}
+                        {library.documentTypes.map((t) => (
+                            <option key={t.code} value={t.code}>
+                                {t.name}
+                            </option>
+                        ))}
                     </NativeSelect>
                 </div>
             </div>
@@ -101,17 +121,23 @@ export function ReportsPage() {
                 </TabsList>
                 <TabsContent value="approved">
                     <label className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
-                        <input type="checkbox" checked={includeInvalid} onChange={(e) => setIncludeInvalid(e.target.checked)} />
+                        <input
+                            type="checkbox"
+                            checked={includeInvalid}
+                            onChange={(e) => setIncludeInvalid(e.target.checked)}
+                        />
                         Include invalid documents
                     </label>
                     <Card>
-                        <ReportTable rows={approved} metadataOf={approvedMetadata} />
+                        <ReportTable rows={approved} valuesOf={approvedValues} library={library} />
                     </Card>
                 </TabsContent>
                 <TabsContent value="working">
-                    <p className="mb-3 text-sm text-muted-foreground">Current details of every document, including drafts.</p>
+                    <p className="mb-3 text-sm text-muted-foreground">
+                        Current details of every document, including drafts.
+                    </p>
                     <Card>
-                        <ReportTable rows={projectDocs} metadataOf={(d) => d.metadata} />
+                        <ReportTable rows={projectDocs} valuesOf={(d) => d.values} library={library} />
                     </Card>
                 </TabsContent>
             </Tabs>

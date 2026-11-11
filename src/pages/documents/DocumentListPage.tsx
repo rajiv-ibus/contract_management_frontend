@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, NativeSelect } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { counterpartyName } from "@/demo/docs";
 import { useDemo, useLookups } from "@/demo/store";
 import type { WorkflowStatus } from "@/demo/types";
 import { cn } from "@/lib/utils";
@@ -21,31 +22,32 @@ const filters: { value: WorkflowStatus | "ALL"; label: string }[] = [
 ];
 
 export function DocumentListPage() {
-    const { documents, projectId, permissions, documentTypes } = useDemo();
+    const { documents, projectId, permissions, libraries } = useDemo();
     const { userName, docType } = useLookups();
     const navigate = useNavigate();
     const [params, setParams] = useSearchParams();
     const [query, setQuery] = useState("");
-    const [typeId, setTypeId] = useState("");
+    const [typeCode, setTypeCode] = useState("");
 
     const status = (params.get("status") as WorkflowStatus | null) ?? "ALL";
     const projectDocs = documents.filter((d) => d.projectId === projectId);
-    const projectTypes = documentTypes.filter((t) => t.projectId === projectId);
+    const projectTypes = libraries[projectId]?.documentTypes ?? [];
 
     const rows = useMemo(() => {
         const q = query.trim().toLowerCase();
         return projectDocs
-            .filter((d) => status === "ALL" || d.status === status)
-            .filter((d) => !typeId || d.typeId === typeId)
+            .map((d) => ({ doc: d, counterparty: counterpartyName(d.values, docType(d.projectId, d.typeCode)) }))
+            .filter(({ doc }) => status === "ALL" || doc.status === status)
+            .filter(({ doc }) => !typeCode || doc.typeCode === typeCode)
             .filter(
-                (d) =>
+                ({ doc, counterparty }) =>
                     !q ||
-                    d.title.toLowerCase().includes(q) ||
-                    String(d.metadata.contractIdentifier ?? "").toLowerCase().includes(q) ||
-                    String(d.metadata.counterpartyEntity ?? "").toLowerCase().includes(q),
+                    doc.title.toLowerCase().includes(q) ||
+                    (doc.instanceId ?? "").toLowerCase().includes(q) ||
+                    counterparty.toLowerCase().includes(q),
             )
-            .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-    }, [projectDocs, status, typeId, query]);
+            .sort((a, b) => b.doc.updatedAt.localeCompare(a.doc.updatedAt));
+    }, [projectDocs, status, typeCode, query, docType]);
 
     return (
         <>
@@ -65,14 +67,17 @@ export function DocumentListPage() {
 
             <div className="mb-4 flex flex-wrap gap-1.5">
                 {filters.map((f) => {
-                    const count = f.value === "ALL" ? projectDocs.length : projectDocs.filter((d) => d.status === f.value).length;
+                    const count =
+                        f.value === "ALL" ? projectDocs.length : projectDocs.filter((d) => d.status === f.value).length;
                     return (
                         <button
                             key={f.value}
                             onClick={() => setParams(f.value === "ALL" ? {} : { status: f.value })}
                             className={cn(
                                 "rounded-full border px-3 py-1 text-sm transition-colors",
-                                status === f.value ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-muted",
+                                status === f.value
+                                    ? "border-primary bg-primary text-primary-foreground"
+                                    : "bg-card hover:bg-muted",
                             )}
                         >
                             {f.label} <span className="ml-1 opacity-70">{count}</span>
@@ -86,17 +91,17 @@ export function DocumentListPage() {
                     <div className="relative flex-1">
                         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                            placeholder="Search by title, contract ID or counterparty"
+                            placeholder="Search by name, instance ID or counterparty"
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             className="pl-9"
                         />
                     </div>
-                    <div className="sm:w-60">
-                        <NativeSelect value={typeId} onChange={(e) => setTypeId(e.target.value)}>
+                    <div className="sm:w-64">
+                        <NativeSelect value={typeCode} onChange={(e) => setTypeCode(e.target.value)}>
                             <option value="">All document types</option>
                             {projectTypes.map((t) => (
-                                <option key={t.id} value={t.id}>
+                                <option key={t.code} value={t.code}>
                                     {t.name}
                                 </option>
                             ))}
@@ -117,20 +122,29 @@ export function DocumentListPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {rows.map((d) => (
-                                <TableRow key={d.id} className="cursor-pointer" onClick={() => navigate(`/documents/${d.id}`)}>
+                            {rows.map(({ doc: d, counterparty }) => (
+                                <TableRow
+                                    key={d.id}
+                                    className="cursor-pointer"
+                                    onClick={() => navigate(`/documents/${d.id}`)}
+                                >
                                     <TableCell>
-                                        <p className={cn("font-medium", d.status === "INVALID" && "text-muted-foreground")}>
+                                        <p
+                                            className={cn(
+                                                "font-medium",
+                                                d.status === "INVALID" && "text-muted-foreground",
+                                            )}
+                                        >
                                             {d.title}
                                         </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {String(d.metadata.contractIdentifier ?? "No contract ID yet")}
+                                        <p className="font-mono text-xs text-muted-foreground">
+                                            {d.instanceId ?? "Not assigned yet"}
                                         </p>
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground">{docType(d.typeId)?.name}</TableCell>
                                     <TableCell className="text-muted-foreground">
-                                        {String(d.metadata.counterpartyEntity ?? "—")}
+                                        {docType(d.projectId, d.typeCode)?.name}
                                     </TableCell>
+                                    <TableCell className="text-muted-foreground">{counterparty}</TableCell>
                                     <TableCell>
                                         <StatusBadge status={d.status} />
                                     </TableCell>
@@ -138,13 +152,19 @@ export function DocumentListPage() {
                                         {d.currentVersionNo ? `v${d.currentVersionNo}` : "—"}
                                     </TableCell>
                                     <TableCell className="text-muted-foreground">{userName(d.createdById)}</TableCell>
-                                    <TableCell className="whitespace-nowrap text-muted-foreground">{fmtDate(d.updatedAt)}</TableCell>
+                                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                                        {fmtDate(d.updatedAt)}
+                                    </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
                 ) : (
-                    <EmptyState icon={FileSearch} title="No documents match" text="Try another status, type or search term." />
+                    <EmptyState
+                        icon={FileSearch}
+                        title="No documents match"
+                        text="Try another status, type or search term."
+                    />
                 )}
             </Card>
         </>

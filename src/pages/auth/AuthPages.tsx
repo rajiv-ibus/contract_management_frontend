@@ -148,7 +148,10 @@ export function SetPasswordPage() {
     }
 
     return (
-        <AuthLayout title="Welcome, Meena" subtitle="You were invited to iBUS Contract Management. Set a password to activate your account.">
+        <AuthLayout
+            title="Welcome, Meena"
+            subtitle="You were invited to iBUS Contract Management. Set a password to activate your account."
+        >
             <form onSubmit={submit} className="flex flex-col gap-4">
                 <Field label="Email">
                     <Input value="meena.iyer@example.com" disabled />
@@ -164,7 +167,9 @@ export function SetPasswordPage() {
                 <Button type="submit" size="lg">
                     Activate account
                 </Button>
-                <p className="text-center text-xs text-muted-foreground">This link works once and expires in 48 hours.</p>
+                <p className="text-center text-xs text-muted-foreground">
+                    This link works once and expires in 48 hours.
+                </p>
             </form>
         </AuthLayout>
     );
@@ -181,8 +186,8 @@ export function ForgotPasswordPage() {
                     <div className="flex items-start gap-3 rounded-lg border bg-muted/50 p-4">
                         <MailCheck className="mt-0.5 size-5 text-primary" />
                         <p className="text-sm">
-                            If an account exists for <span className="font-medium">{email}</span>, a reset link has
-                            been sent. The link expires in 30 minutes.
+                            If an account exists for <span className="font-medium">{email}</span>, a reset link has been
+                            sent. The link expires in 30 minutes.
                         </p>
                     </div>
                     <Link to="/reset-password" className="text-sm text-primary hover:underline">
@@ -205,7 +210,10 @@ export function ForgotPasswordPage() {
                     </Button>
                 </form>
             )}
-            <Link to="/login" className="mt-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+            <Link
+                to="/login"
+                className="mt-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
                 <ArrowLeft className="size-4" /> Back to sign in
             </Link>
         </AuthLayout>

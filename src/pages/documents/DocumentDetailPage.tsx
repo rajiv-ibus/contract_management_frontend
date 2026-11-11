@@ -1,4 +1,5 @@
 import {
+    AlertTriangle,
     ArrowLeft,
     Ban,
     CheckCircle2,
@@ -10,18 +11,18 @@ import {
     MessageSquare,
     Pencil,
     RotateCcw,
+    ScrollText,
     Send,
     ShieldCheck,
     Trash2,
     Undo2,
     XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
 import { EmptyState, Initials, PageHeader, StatusBadge, fmtAgo, fmtDateTime } from "@/components/common";
-import { MetadataView, displayValue, fieldErrors, isVisible } from "@/components/metadata";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,11 +34,15 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Field, NativeSelect, Textarea } from "@/components/ui/form";
+import { Checkbox, Field, NativeSelect, Textarea } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { approvalFields, deriveContext, documentIssues, submitLibrary } from "@/demo/docs";
 import { useDemo, useLookups } from "@/demo/store";
-import type { Comment, ContractDocument, FieldDef, Version } from "@/demo/types";
+import type { Comment, ContractDocument, Version } from "@/demo/types";
 import { cn } from "@/lib/utils";
+import { countByTier } from "@/templates/engine";
+import { SummarySheet } from "@/templates/SummarySheet";
+import { TemplateView } from "@/templates/TemplateView";
 
 type DialogKind = "approve" | "reject" | "invalidate" | "delete" | "submit" | null;
 
@@ -48,56 +53,14 @@ function versionState(doc: ContractDocument, v: Version) {
     return "Superseded";
 }
 
-function SummarySheetPreview({ doc, fields, version }: { doc: ContractDocument; fields: FieldDef[]; version: Version }) {
-    const { docType, userName } = useLookups();
-    const { documents } = useDemo();
-    const sourceDoc = documents.find((d) => d.id === doc.createdFromId);
-    const source = sourceDoc ? `Created from ${String(sourceDoc.metadata.contractIdentifier)} (invalid)` : null;
-    return (
-        <div className="mx-auto w-full max-w-md rounded-sm border bg-white p-6 text-[11px] leading-relaxed text-slate-700 shadow-md">
-            <p className="text-center text-xs font-bold tracking-widest text-slate-900 uppercase">Summary Reference Sheet</p>
-            <p className="mb-3 text-center text-[10px] text-slate-500">
-                Final section of the combined PDF · version {version.no}
-            </p>
-            <table className="w-full">
-                <tbody>
-                    <tr>
-                        <td className="w-2/5 py-0.5 pr-2 font-semibold text-slate-900">Document</td>
-                        <td>{doc.title}</td>
-                    </tr>
-                    <tr>
-                        <td className="py-0.5 pr-2 font-semibold text-slate-900">Type</td>
-                        <td>{docType(doc.typeId)?.name}</td>
-                    </tr>
-                    {fields
-                        .filter((f) => isVisible(f, version.metadata))
-                        .map((f) => (
-                            <tr key={f.key}>
-                                <td className="py-0.5 pr-2 align-top font-semibold text-slate-900">{f.label}</td>
-                                <td>{displayValue(f, version.metadata[f.key])}</td>
-                            </tr>
-                        ))}
-                    {source && (
-                        <tr>
-                            <td className="py-0.5 pr-2 font-semibold text-slate-900">Reference</td>
-                            <td>{source}</td>
-                        </tr>
-                    )}
-                    <tr>
-                        <td className="py-0.5 pr-2 font-semibold text-slate-900">Submitted by</td>
-                        <td>
-                            {userName(version.submittedBy)}, {fmtDateTime(version.submittedAt)}
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            <div className="mt-3 border-t pt-2">
-                <p className="font-semibold text-slate-900">Version content hash (SHA-256)</p>
-                <p className="font-mono text-[9px] break-all text-slate-500">{version.fileHash}</p>
-            </div>
-        </div>
-    );
-}
+const stateVariant = (state: string) =>
+    state.startsWith("Approved")
+        ? "approved"
+        : state === "Rejected"
+          ? "rejected"
+          : state === "Waiting for review"
+            ? "pending"
+            : "muted";
 
 function NotesTab({ doc, canComment }: { doc: ContractDocument; canComment: boolean }) {
     const { actions } = useDemo();
@@ -135,13 +98,7 @@ function NotesTab({ doc, canComment }: { doc: ContractDocument; canComment: bool
                     <section key={v.no}>
                         <div className="mb-3 flex flex-wrap items-center gap-2">
                             <h3 className="text-sm font-semibold">Version {v.no}</h3>
-                            <Badge
-                                variant={
-                                    state.startsWith("Approved") ? "approved" : state === "Rejected" ? "rejected" : state === "Waiting for review" ? "pending" : "muted"
-                                }
-                            >
-                                {state}
-                            </Badge>
+                            <Badge variant={stateVariant(state)}>{state}</Badge>
                             <span className="text-xs text-muted-foreground">
                                 submitted by {userName(v.submittedBy)} · {fmtDateTime(v.submittedAt)}
                             </span>
@@ -156,7 +113,10 @@ function NotesTab({ doc, canComment }: { doc: ContractDocument; canComment: bool
                                     const replies = doc.comments.filter((r) => r.replyToId === c.id);
                                     return (
                                         <li key={c.id} className="rounded-lg border bg-card">
-                                            <CommentItem comment={c} onReply={canComment ? () => setReplyTo(c) : undefined} />
+                                            <CommentItem
+                                                comment={c}
+                                                onReply={canComment ? () => setReplyTo(c) : undefined}
+                                            />
                                             {replies.length > 0 && (
                                                 <ul className="ml-10 flex flex-col border-t">
                                                     {replies.map((r) => (
@@ -198,9 +158,15 @@ function NotesTab({ doc, canComment }: { doc: ContractDocument; canComment: bool
                                 </NativeSelect>
                             </Field>
                         )}
-                        <Textarea placeholder="Write a comment…" value={text} onChange={(e) => setText(e.target.value)} />
+                        <Textarea
+                            placeholder="Write a comment…"
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                        />
                         <div className="flex justify-between gap-2">
-                            <p className="text-xs text-muted-foreground">Comments can't be edited or deleted once posted.</p>
+                            <p className="text-xs text-muted-foreground">
+                                Comments can't be edited or deleted once posted.
+                            </p>
                             <Button size="sm" onClick={post} disabled={!text.trim()}>
                                 Post comment
                             </Button>
@@ -247,24 +213,67 @@ function CommentItem({ comment, onReply }: { comment: Comment; onReply?: () => v
 export function DocumentDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { documents, currentUser, permissions, actions } = useDemo();
-    const { userName, docType, categoryName } = useLookups();
+    const { documents, libraries, currentUser, permissions, actions } = useDemo();
+    const { userName, docType, familyName } = useLookups();
     const [dialog, setDialog] = useState<DialogKind>(null);
     const [text, setText] = useState("");
+    const [attested, setAttested] = useState<string[]>([]);
     const [compare, setCompare] = useState(false);
+    const [sheetOpen, setSheetOpen] = useState(false);
 
     const doc = documents.find((d) => d.id === id);
-    if (!doc) {
-        return <EmptyState icon={FileText} title="Document not found" text="It may have been deleted, or you don't have access." />;
+    const library = doc ? libraries[doc.projectId] : undefined;
+
+    const current = doc?.versions.find((v) => v.no === doc.currentVersionNo);
+    const previous = doc?.versions.find((v) => v.no === (doc.currentVersionNo ?? 0) - 1);
+    const shownValues = doc && (doc.status === "DRAFT" || !current ? doc.values : current.values);
+
+    const issues = useMemo(
+        () => (doc && library && shownValues ? documentIssues(library, doc.typeCode, shownValues) : []),
+        [doc, library, shownValues],
+    );
+
+    // Fields the Checker answers at approval (the attestation) only appear once a version has been approved, and
+    // show what the Checker recorded. Before that they are not part of what is being reviewed.
+    const approved = !!doc?.approvedVersionNo;
+    const viewLibrary = useMemo(
+        () => (library ? (approved ? library : submitLibrary(library)) : undefined),
+        [library, approved],
+    );
+    const viewValues = useMemo(() => {
+        if (!doc || !library || !shownValues || !approved || !doc.attestation) return shownValues;
+        const answered = Object.fromEntries(
+            approvalFields(library, doc.typeCode, shownValues).map((f) => [
+                f.key,
+                doc.attestation!.items.includes(f.label),
+            ]),
+        );
+        return { ...shownValues, fields: { ...shownValues.fields, ...answered } };
+    }, [doc, library, shownValues, approved]);
+
+    if (!doc || !library || !shownValues || !viewLibrary || !viewValues) {
+        return (
+            <EmptyState
+                icon={FileText}
+                title="Document not found"
+                text="It may have been deleted, or you don't have access."
+            />
+        );
     }
 
-    const type = docType(doc.typeId);
-    const fields = type?.templates.find((t) => t.no === type.activeTemplateNo)?.fields ?? [];
-    const current = doc.versions.find((v) => v.no === doc.currentVersionNo);
-    const previous = doc.versions.find((v) => v.no === (doc.currentVersionNo ?? 0) - 1);
-    const shownMetadata = doc.status === "DRAFT" || !current ? doc.metadata : current.metadata;
+    const type = docType(doc.projectId, doc.typeCode);
     const sourceDoc = doc.createdFromId ? documents.find((d) => d.id === doc.createdFromId) : undefined;
-    const rejection = [...doc.comments].reverse().find((c) => c.type === "REJECTION" && c.versionNo === doc.currentVersionNo);
+    const rejection = [...doc.comments]
+        .reverse()
+        .find((c) => c.type === "REJECTION" && c.versionNo === doc.currentVersionNo);
+    const attestFields = approvalFields(library, doc.typeCode, shownValues);
+    const tiers = countByTier(issues);
+
+    const derive = deriveContext(doc, {
+        preparedBy: userName(current?.submittedBy ?? doc.createdById),
+        verifiedBy: userName(doc.attestation?.byId),
+        fileRef: current ? `${current.fileName} · ${current.fileHash.slice(0, 12)}…` : undefined,
+    });
 
     const isOwn = doc.createdById === currentUser.id || current?.submittedBy === currentUser.id;
     const can = {
@@ -281,13 +290,14 @@ export function DocumentDetailPage() {
     function close() {
         setDialog(null);
         setText("");
+        setAttested([]);
     }
 
     function confirm() {
         if (!doc) return;
         switch (dialog) {
             case "approve":
-                actions.approve(doc.id, text);
+                actions.approve(doc.id, text, attested);
                 toast.success(`Version ${doc.currentVersionNo} approved. The Maker has been emailed.`);
                 break;
             case "reject":
@@ -313,21 +323,34 @@ export function DocumentDetailPage() {
 
     function trySubmit() {
         if (!doc) return;
-        const errors = fieldErrors(fields, doc.metadata);
-        if (Object.keys(errors).length || !doc.draftFileName) {
+        const blocking = documentIssues(library!, doc.typeCode, doc.values).filter((i) => i.tier === "BLOCK").length;
+        if (blocking || !doc.draftFileName) {
             toast.error("Some required details or the PDF are missing. Edit the draft first.");
             return;
         }
         setDialog("submit");
     }
 
-    const dialogs: Record<Exclude<DialogKind, null>, { title: string; text: string; field?: string; required?: boolean; button: string; variant: "default" | "destructive" | "success" }> = {
+    const allAttested = attestFields.every((f) => attested.includes(f.label));
+    const dialogs: Record<
+        Exclude<DialogKind, null>,
+        {
+            title: string;
+            text: string;
+            field?: string;
+            required?: boolean;
+            button: string;
+            variant: "default" | "destructive" | "success";
+            disabled?: boolean;
+        }
+    > = {
         approve: {
             title: `Approve version ${doc.currentVersionNo}`,
             text: "Once approved, the document is locked and can't be edited or reopened. The Maker and the distribution list are emailed.",
             field: "Comment (optional)",
             button: "Approve",
             variant: "success",
+            disabled: !allAttested,
         },
         reject: {
             title: `Reject version ${doc.currentVersionNo}`,
@@ -347,7 +370,9 @@ export function DocumentDetailPage() {
         },
         submit: {
             title: "Submit for approval",
-            text: `This freezes the current details and PDF as version ${doc.versions.length + 1} and emails the project's Checkers.`,
+            text:
+                `This freezes the current details and PDF as version ${doc.versions.length + 1} and emails the project's Checkers.` +
+                (tiers.WARN ? ` The Checker will see ${tiers.WARN} warning${tiers.WARN === 1 ? "" : "s"}.` : ""),
             button: "Submit",
             variant: "default",
         },
@@ -362,7 +387,10 @@ export function DocumentDetailPage() {
 
     return (
         <>
-            <Link to="/documents" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+            <Link
+                to="/documents"
+                className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
                 <ArrowLeft className="size-4" /> Documents
             </Link>
 
@@ -373,11 +401,14 @@ export function DocumentDetailPage() {
                         <StatusBadge status={doc.status} />
                     </span>
                 }
-                description={`${String(doc.metadata.contractIdentifier ?? "No contract ID")} · ${categoryName(type?.categoryId ?? "")} › ${type?.name} · created by ${userName(doc.createdById)}`}
+                description={`${doc.instanceId ?? "Instance ID assigned on first submission"} · ${familyName(doc.projectId, doc.typeCode)} › ${type?.name} · created by ${userName(doc.createdById)}`}
                 actions={
                     <>
                         {current && (
-                            <Button variant="outline" onClick={() => toast("In the real app this downloads the combined PDF.")}>
+                            <Button
+                                variant="outline"
+                                onClick={() => toast("In the real app this downloads the combined PDF.")}
+                            >
                                 <Download /> PDF
                             </Button>
                         )}
@@ -465,7 +496,30 @@ export function DocumentDetailPage() {
                 {doc.status === "APPROVED" && (
                     <div className="flex items-center gap-3 rounded-lg border border-status-approved/30 bg-status-approved/5 p-4 text-sm">
                         <ShieldCheck className="size-5 text-status-approved" />
-                        Version {doc.approvedVersionNo} is approved and locked. It can't be edited or reopened.
+                        <span>
+                            Version {doc.approvedVersionNo} is approved and locked. It can't be edited or reopened.
+                            {doc.attestation &&
+                                ` Attested by ${userName(doc.attestation.byId)}, ${fmtDateTime(doc.attestation.at)}.`}
+                        </span>
+                    </div>
+                )}
+                {doc.status === "APPROVAL_PENDING" && can.review && (tiers.WARN > 0 || tiers.FLAG > 0) && (
+                    <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                        <AlertTriangle className="mt-0.5 size-5 text-amber-600" />
+                        <div className="min-w-0">
+                            <p className="font-medium">
+                                {tiers.WARN} warning{tiers.WARN === 1 ? "" : "s"} for you
+                                {tiers.FLAG > 0 &&
+                                    ` and ${tiers.FLAG} note${tiers.FLAG === 1 ? "" : "s"} for the signer`}
+                            </p>
+                            <ul className="mt-1 list-disc pl-5">
+                                {issues
+                                    .filter((i) => i.tier !== "BLOCK")
+                                    .map((i, n) => (
+                                        <li key={n}>{i.message}</li>
+                                    ))}
+                            </ul>
+                        </div>
                     </div>
                 )}
                 {ownReviewBlocked && (
@@ -479,8 +533,11 @@ export function DocumentDetailPage() {
                         <Info className="size-5 text-primary" />
                         <span>
                             Created from invalid document{" "}
-                            <Link to={`/documents/${sourceDoc.id}`} className="font-medium text-primary hover:underline">
-                                {String(sourceDoc.metadata.contractIdentifier)} · {sourceDoc.title}
+                            <Link
+                                to={`/documents/${sourceDoc.id}`}
+                                className="font-medium text-primary hover:underline"
+                            >
+                                {sourceDoc.instanceId} · {sourceDoc.title}
                             </Link>
                         </span>
                     </div>
@@ -506,28 +563,35 @@ export function DocumentDetailPage() {
                 </TabsList>
 
                 <TabsContent value="details">
-                    <div className="grid gap-6 lg:grid-cols-5">
-                        <Card className="lg:col-span-3">
-                            <CardHeader className="flex-row items-center justify-between">
-                                <CardTitle>
-                                    {doc.status === "DRAFT" || !current ? "Working details (draft)" : `Details · version ${current.no}`}
-                                </CardTitle>
+                    <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
+                        <div className="min-w-0">
+                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                <h2 className="text-sm font-semibold">
+                                    {doc.status === "DRAFT" || !current
+                                        ? "Working details (draft)"
+                                        : `Details · version ${current.no}`}
+                                </h2>
                                 {previous && doc.status !== "DRAFT" && (
                                     <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                                        <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} />
+                                        <input
+                                            type="checkbox"
+                                            checked={compare}
+                                            onChange={(e) => setCompare(e.target.checked)}
+                                        />
                                         Highlight changes from v{previous.no}
                                     </label>
                                 )}
-                            </CardHeader>
-                            <CardContent>
-                                <MetadataView
-                                    fields={fields}
-                                    values={shownMetadata}
-                                    compareTo={compare && previous ? previous.metadata : undefined}
-                                />
-                            </CardContent>
-                        </Card>
-                        <div className="flex flex-col gap-4 lg:col-span-2">
+                            </div>
+                            <TemplateView
+                                library={viewLibrary}
+                                typeCode={doc.typeCode}
+                                values={viewValues}
+                                derive={derive}
+                                issues={issues.filter((i) => i.tier !== "BLOCK")}
+                                compareTo={compare && previous ? previous.values : undefined}
+                            />
+                        </div>
+                        <div className="flex flex-col gap-4">
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="text-sm">File</CardTitle>
@@ -543,7 +607,9 @@ export function DocumentDetailPage() {
                                                     {doc.status === "DRAFT" ? doc.draftFileName : current?.fileName}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {doc.status === "DRAFT" ? "Uploaded contract (draft)" : "Combined PDF: contract + Summary Reference Sheet"}
+                                                    {doc.status === "DRAFT"
+                                                        ? "Uploaded contract (draft)"
+                                                        : "Combined PDF: contract + Summary Reference Sheet"}
                                                 </p>
                                             </div>
                                         </div>
@@ -553,10 +619,17 @@ export function DocumentDetailPage() {
                                 </CardContent>
                             </Card>
                             {current && doc.status !== "DRAFT" && (
-                                <div>
-                                    <p className="mb-2 text-xs font-medium text-muted-foreground">Preview of the last page</p>
-                                    <SummarySheetPreview doc={doc} fields={fields} version={current} />
-                                </div>
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="text-sm">Summary Reference Sheet</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="flex flex-col gap-3 pt-3 text-sm text-muted-foreground">
+                                        <p>The last section of the combined PDF. It lists every value above as text.</p>
+                                        <Button variant="outline" size="sm" onClick={() => setSheetOpen(true)}>
+                                            <ScrollText /> Preview the sheet
+                                        </Button>
+                                    </CardContent>
+                                </Card>
                             )}
                         </div>
                     </div>
@@ -582,20 +655,24 @@ export function DocumentDetailPage() {
                                                 <div className="min-w-0 flex-1">
                                                     <p className="text-sm font-medium">
                                                         {v.fileName}{" "}
-                                                        <Badge
-                                                            className="ml-1"
-                                                            variant={state.startsWith("Approved") ? "approved" : state === "Rejected" ? "rejected" : state === "Waiting for review" ? "pending" : "muted"}
-                                                        >
+                                                        <Badge className="ml-1" variant={stateVariant(state)}>
                                                             {state}
                                                         </Badge>
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">
                                                         {v.restoredFrom && `Restored from v${v.restoredFrom} · `}
-                                                        Submitted by {userName(v.submittedBy)} · {fmtDateTime(v.submittedAt)} · file hash{" "}
+                                                        Submitted by {userName(v.submittedBy)} ·{" "}
+                                                        {fmtDateTime(v.submittedAt)} · file hash{" "}
                                                         <span className="font-mono">{v.fileHash.slice(0, 12)}…</span>
                                                     </p>
                                                 </div>
-                                                <Button variant="outline" size="sm" onClick={() => toast("In the real app this downloads that version's PDF.")}>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        toast("In the real app this downloads that version's PDF.")
+                                                    }
+                                                >
                                                     <Download /> PDF
                                                 </Button>
                                                 {permissions.canMake && doc.status === "DRAFT" && (
@@ -616,7 +693,11 @@ export function DocumentDetailPage() {
                             </ul>
                         </Card>
                     ) : (
-                        <EmptyState icon={History} title="No versions yet" text="A version is created every time the document is submitted." />
+                        <EmptyState
+                            icon={History}
+                            title="No versions yet"
+                            text="A version is created every time the document is submitted."
+                        />
                     )}
                 </TabsContent>
 
@@ -647,6 +728,34 @@ export function DocumentDetailPage() {
                             <DialogTitle>{active.title}</DialogTitle>
                             <DialogDescription>{active.text}</DialogDescription>
                         </DialogHeader>
+                        {dialog === "approve" && attestFields.length > 0 && (
+                            <div className="flex flex-col gap-3 rounded-lg border bg-muted/40 p-3">
+                                <p className="text-xs font-medium text-muted-foreground">
+                                    Attestation (required before approval)
+                                </p>
+                                {attestFields.map((f) => (
+                                    <label key={f.key} className="flex items-start gap-2.5 text-sm">
+                                        <Checkbox
+                                            checked={attested.includes(f.label)}
+                                            onCheckedChange={(on) =>
+                                                setAttested((all) =>
+                                                    on === true ? [...all, f.label] : all.filter((x) => x !== f.label),
+                                                )
+                                            }
+                                            className="mt-0.5"
+                                        />
+                                        <span>
+                                            <span className="font-medium">{f.label}</span>
+                                            {f.description && (
+                                                <span className="mt-0.5 block text-xs text-muted-foreground">
+                                                    {f.description}
+                                                </span>
+                                            )}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                        )}
                         {active.field && (
                             <Field label={active.field} required={active.required}>
                                 <Textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} />
@@ -656,10 +765,42 @@ export function DocumentDetailPage() {
                             <Button variant="outline" onClick={close}>
                                 Cancel
                             </Button>
-                            <Button variant={active.variant} onClick={confirm} disabled={!!active.required && !text.trim()}>
+                            <Button
+                                variant={active.variant}
+                                onClick={confirm}
+                                disabled={(!!active.required && !text.trim()) || !!active.disabled}
+                            >
                                 {active.button}
                             </Button>
                         </DialogFooter>
+                    </DialogContent>
+                )}
+            </Dialog>
+
+            <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
+                {current && (
+                    <DialogContent className="max-h-[90vh] max-w-3xl bg-muted">
+                        <DialogHeader>
+                            <DialogTitle>Summary Reference Sheet · version {current.no}</DialogTitle>
+                            <DialogDescription>
+                                The last section of the combined PDF. It can run to several pages.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <SummarySheet
+                            library={viewLibrary}
+                            typeCode={doc.typeCode}
+                            title={doc.title}
+                            values={viewValues}
+                            derive={derive}
+                            versionNo={current.no}
+                            hash={current.fileHash}
+                            submittedBy={userName(current.submittedBy)}
+                            submittedAt={current.submittedAt}
+                            createdFrom={
+                                sourceDoc ? `${sourceDoc.instanceId} · ${sourceDoc.title} (invalid)` : undefined
+                            }
+                            flags={issues.filter((i) => i.tier === "FLAG")}
+                        />
                     </DialogContent>
                 )}
             </Dialog>

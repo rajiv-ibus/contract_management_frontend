@@ -1,3 +1,5 @@
+import type { DocumentValues } from "@/templates/model";
+
 export type WorkflowStatus = "DRAFT" | "APPROVAL_PENDING" | "REJECTED" | "APPROVED" | "INVALID";
 export type UserStatus = "INVITED" | "ACTIVE" | "DEACTIVATED";
 export type CommentType = "COMMENT" | "APPROVAL" | "REJECTION";
@@ -27,49 +29,12 @@ export interface Membership {
     canCheck: boolean;
 }
 
-export interface Category {
-    id: string;
-    projectId: string;
-    code: string;
-    name: string;
-}
-
-export type FieldType = "string" | "text" | "date" | "enum" | "decimal" | "tags";
-
-export interface FieldDef {
-    key: string;
-    label: string;
-    type: FieldType;
-    required: boolean;
-    options?: string[];
-    showWhen?: Record<string, string>;
-    hint?: string;
-}
-
-export interface TemplateVersion {
-    no: number;
-    createdAt: string;
-    createdBy: string;
-    fields: FieldDef[];
-}
-
-export interface DocumentType {
-    id: string;
-    projectId: string;
-    categoryId: string;
-    code: string;
-    name: string;
-    activeTemplateNo: number;
-    templates: TemplateVersion[];
-}
-
-export type Metadata = Record<string, string | string[]>;
-
 export interface Version {
     no: number;
     submittedBy: string;
     submittedAt: string;
-    metadata: Metadata;
+    /** Frozen at submission. Parties, field values and the one-off (L4) fields all travel together. */
+    values: DocumentValues;
     fileName: string;
     fileSizeKb: number;
     fileHash: string;
@@ -93,22 +58,34 @@ export interface Activity {
     detail?: string;
 }
 
+/** The Checker's attestation, recorded when a version is approved. */
+export interface Attestation {
+    byId: string;
+    at: string;
+    items: string[];
+}
+
 export interface ContractDocument {
     id: string;
     projectId: string;
-    typeId: string;
+    /** Register ID of the document type, e.g. IBUS-PRP-LLA-OUT. */
+    typeCode: string;
     title: string;
     status: WorkflowStatus;
-    metadata: Metadata;
+    /** Working copy. Editable only while the document is a draft. */
+    values: DocumentValues;
+    /** Assigned on first submission and never reissued: <type>/<year>/<number>. */
+    instanceId?: string;
     draftFileName?: string;
     draftFileSizeKb?: number;
     currentVersionNo?: number;
     approvedVersionNo?: number;
+    attestation?: Attestation;
+    restoredFromVersionNo?: number;
     createdById: string;
     createdAt: string;
     updatedAt: string;
     createdFromId?: string;
-    restoredFromVersionNo?: number;
     invalidatedById?: string;
     invalidatedAt?: string;
     invalidationReason?: string;

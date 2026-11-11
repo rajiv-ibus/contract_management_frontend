@@ -84,9 +84,11 @@ export function Initials({ name, className }: { name: string; className?: string
 
 /** Dates are stored in UTC and shown in IST. */
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-const toIst = (iso: string) => new Date(parseISO(iso).getTime() + IST_OFFSET_MS + new Date().getTimezoneOffset() * 60000);
+const toIst = (iso: string) =>
+    new Date(parseISO(iso).getTime() + IST_OFFSET_MS + new Date().getTimezoneOffset() * 60000);
 
-export const fmtDate = (iso?: string) => (iso ? format(iso.length === 10 ? parseISO(iso) : toIst(iso), "dd MMM yyyy") : "—");
+export const fmtDate = (iso?: string) =>
+    iso ? format(iso.length === 10 ? parseISO(iso) : toIst(iso), "dd MMM yyyy") : "—";
 export const fmtDateTime = (iso?: string) => (iso ? `${format(toIst(iso), "dd MMM yyyy, h:mm a")} IST` : "—");
 export const fmtAgo = (iso?: string) => {
     if (!iso) return "—";

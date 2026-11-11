@@ -1,31 +1,92 @@
-// Sample data for the UI prototype. Names, companies and emails are fictitious.
-import type {
-    Category,
-    ContractDocument,
-    DemoRole,
-    DocumentType,
-    FieldDef,
-    Membership,
-    NotificationRecipient,
-    Project,
-    User,
-} from "./types";
+// Sample data for the UI prototype. Names, companies and emails are fictitious. Document values are built from the
+// customer's sample field reference (see src/templates/sampleLibrary.ts), so every document uses the real field model.
+import { sampleLibrary, sampleValues } from "@/templates/sampleLibrary";
+import type { DocumentValues, FieldLibrary, FieldValue } from "@/templates/model";
+
+import type { ContractDocument, DemoRole, Membership, NotificationRecipient, Project, User } from "./types";
 
 export const users: User[] = [
-    { id: "u1", name: "Kumar Raj", email: "kumar.raj@example.com", status: "ACTIVE", isSuperAdmin: true, lastLoginAt: "2026-11-10T09:12:00Z" },
-    { id: "u2", name: "Priya Sharma", email: "priya.sharma@example.com", status: "ACTIVE", isSuperAdmin: false, lastLoginAt: "2026-11-10T08:40:00Z" },
-    { id: "u3", name: "Ravi Kumar", email: "ravi.kumar@example.com", status: "ACTIVE", isSuperAdmin: false, lastLoginAt: "2026-11-10T10:05:00Z" },
-    { id: "u4", name: "Anitha Devi", email: "anitha.devi@example.com", status: "ACTIVE", isSuperAdmin: false, lastLoginAt: "2026-11-09T16:30:00Z" },
-    { id: "u5", name: "Suresh Babu", email: "suresh.babu@example.com", status: "ACTIVE", isSuperAdmin: false, lastLoginAt: "2026-11-08T11:00:00Z" },
+    {
+        id: "u1",
+        name: "Kumar Raj",
+        email: "kumar.raj@example.com",
+        status: "ACTIVE",
+        isSuperAdmin: true,
+        lastLoginAt: "2026-11-10T09:12:00Z",
+    },
+    {
+        id: "u2",
+        name: "Priya Sharma",
+        email: "priya.sharma@example.com",
+        status: "ACTIVE",
+        isSuperAdmin: false,
+        lastLoginAt: "2026-11-10T08:40:00Z",
+    },
+    {
+        id: "u3",
+        name: "Ravi Kumar",
+        email: "ravi.kumar@example.com",
+        status: "ACTIVE",
+        isSuperAdmin: false,
+        lastLoginAt: "2026-11-10T10:05:00Z",
+    },
+    {
+        id: "u4",
+        name: "Anitha Devi",
+        email: "anitha.devi@example.com",
+        status: "ACTIVE",
+        isSuperAdmin: false,
+        lastLoginAt: "2026-11-09T16:30:00Z",
+    },
+    {
+        id: "u5",
+        name: "Suresh Babu",
+        email: "suresh.babu@example.com",
+        status: "ACTIVE",
+        isSuperAdmin: false,
+        lastLoginAt: "2026-11-08T11:00:00Z",
+    },
     { id: "u6", name: "Meena Iyer", email: "meena.iyer@example.com", status: "INVITED", isSuperAdmin: false },
-    { id: "u7", name: "Arjun Nair", email: "arjun.nair@example.com", status: "ACTIVE", isSuperAdmin: false, lastLoginAt: "2026-11-07T14:20:00Z" },
-    { id: "u8", name: "Deepa Menon", email: "deepa.menon@example.com", status: "DEACTIVATED", isSuperAdmin: false, lastLoginAt: "2026-10-02T09:00:00Z" },
+    {
+        id: "u7",
+        name: "Arjun Nair",
+        email: "arjun.nair@example.com",
+        status: "ACTIVE",
+        isSuperAdmin: false,
+        lastLoginAt: "2026-11-07T14:20:00Z",
+    },
+    {
+        id: "u8",
+        name: "Deepa Menon",
+        email: "deepa.menon@example.com",
+        status: "DEACTIVATED",
+        isSuperAdmin: false,
+        lastLoginAt: "2026-10-02T09:00:00Z",
+    },
 ];
 
 export const projects: Project[] = [
-    { id: "p1", code: "HOSP", name: "Hospitality", description: "Hotel leases, retail leases and hospitality services", active: true },
-    { id: "p2", code: "PROC", name: "Procurement", description: "Purchase and supply agreements", active: true },
-    { id: "p3", code: "FAC", name: "Facilities", description: "Building maintenance and facility services", active: true },
+    {
+        id: "p1",
+        code: "HOSP",
+        name: "Hospitality",
+        description: "Property agreements, service agreements and NDAs for hospitality",
+        active: true,
+    },
+    {
+        id: "p2",
+        code: "PROC",
+        name: "Procurement",
+        description: "Purchase, supply and warehousing agreements",
+        active: true,
+    },
+    {
+        id: "p3",
+        code: "FAC",
+        name: "Facilities",
+        description: "Building maintenance and facility services",
+        active: true,
+    },
     { id: "p4", code: "LEGAL", name: "Legal", description: "Legal and compliance agreements", active: false },
 ];
 
@@ -41,102 +102,13 @@ export const memberships: Membership[] = [
     { userId: "u2", projectId: "p3", isAdmin: false, canMake: true, canCheck: true },
 ];
 
-export const categories: Category[] = [
-    { id: "c1", projectId: "p1", code: "LEASE", name: "Leases" },
-    { id: "c2", projectId: "p1", code: "SERVICE", name: "Services" },
-    { id: "c3", projectId: "p2", code: "SUPPLY", name: "Supply" },
-];
-
-const commonFields: FieldDef[] = [
-    { key: "contractIdentifier", label: "Contract ID", type: "string", required: true, hint: "Business contract number" },
-    { key: "legalEntity", label: "iBUS legal entity", type: "enum", required: true, options: ["iBUS Network", "iBUS Infra"] },
-    { key: "startDate", label: "Start date", type: "date", required: true },
-    { key: "endDate", label: "End date", type: "date", required: true, hint: "Must be on or after the start date" },
-    { key: "counterpartyEntity", label: "Counterparty", type: "string", required: true },
-    { key: "counterpartySignatory", label: "Counterparty signing authority", type: "string", required: true },
-];
-
-const pricingFields: FieldDef[] = [
-    {
-        key: "pricingModel",
-        label: "Pricing model",
-        type: "enum",
-        required: true,
-        options: ["FIXED", "SHARED", "PERCENTAGE", "REVENUE_SHARE"],
-    },
-    { key: "fixedAmount", label: "Fixed amount (INR)", type: "decimal", required: false, showWhen: { pricingModel: "FIXED" } },
-    {
-        key: "revenueSharePercent",
-        label: "Revenue share %",
-        type: "decimal",
-        required: false,
-        showWhen: { pricingModel: "REVENUE_SHARE" },
-    },
-    { key: "tags", label: "Tags", type: "tags", required: false, hint: "Comma-separated" },
-];
-
-const leaseFields: FieldDef[] = [
-    ...commonFields,
-    { key: "siteAddress", label: "Site address", type: "text", required: false },
-    ...pricingFields,
-];
-
-const serviceFields: FieldDef[] = [
-    ...commonFields,
-    { key: "serviceScope", label: "Scope of service", type: "text", required: true },
-    ...pricingFields,
-];
-
-export const documentTypes: DocumentType[] = [
-    {
-        id: "t1",
-        projectId: "p1",
-        categoryId: "c1",
-        code: "HOTEL_LEASE",
-        name: "Hotel Lease",
-        activeTemplateNo: 2,
-        templates: [
-            { no: 1, createdAt: "2026-09-02T10:00:00Z", createdBy: "u2", fields: commonFields },
-            { no: 2, createdAt: "2026-10-15T10:00:00Z", createdBy: "u2", fields: leaseFields },
-        ],
-    },
-    {
-        id: "t2",
-        projectId: "p1",
-        categoryId: "c1",
-        code: "RETAIL_LEASE",
-        name: "Retail Lease",
-        activeTemplateNo: 1,
-        templates: [{ no: 1, createdAt: "2026-09-02T10:00:00Z", createdBy: "u2", fields: leaseFields }],
-    },
-    {
-        id: "t3",
-        projectId: "p1",
-        categoryId: "c2",
-        code: "HOUSEKEEPING",
-        name: "Housekeeping Service",
-        activeTemplateNo: 1,
-        templates: [{ no: 1, createdAt: "2026-09-05T10:00:00Z", createdBy: "u2", fields: serviceFields }],
-    },
-    {
-        id: "t4",
-        projectId: "p1",
-        categoryId: "c2",
-        code: "AMC",
-        name: "Annual Maintenance Contract",
-        activeTemplateNo: 1,
-        templates: [{ no: 1, createdAt: "2026-09-05T10:00:00Z", createdBy: "u2", fields: serviceFields }],
-    },
-    {
-        id: "t5",
-        projectId: "p2",
-        categoryId: "c3",
-        code: "SUPPLY",
-        name: "Supply Agreement",
-        activeTemplateNo: 1,
-        templates: [{ no: 1, createdAt: "2026-09-10T10:00:00Z", createdBy: "u1", fields: serviceFields }],
-    },
-];
+/** Every project starts with the sample field library. A project Admin saves changes as a new version. */
+export const libraries: Record<string, FieldLibrary> = {
+    p1: sampleLibrary,
+    p2: sampleLibrary,
+    p3: sampleLibrary,
+    p4: sampleLibrary,
+};
 
 export const notificationRecipients: NotificationRecipient[] = [
     { id: "r1", projectId: "p1", email: "legal.team@example.com", name: "Legal team" },
@@ -144,27 +116,48 @@ export const notificationRecipients: NotificationRecipient[] = [
     { id: "r3", projectId: "p2", email: "procurement.head@example.com", name: "Procurement head" },
 ];
 
+// ---------------------------------------------------------------------------------------------------------------
+// Documents
+// ---------------------------------------------------------------------------------------------------------------
+
+const WH = "IBUS-PRC-WH-IN";
+const NDA = "IBUS-LEG-NDA-MUT";
+const LLA = "IBUS-PRP-LLA-OUT";
+
 const hash = (seed: string) => (seed.repeat(16) + "0".repeat(64)).slice(0, 64);
+const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
+
+/** A copy of the sample values with changes applied. */
+function variant(base: DocumentValues, change: (v: DocumentValues) => void): DocumentValues {
+    const v = clone(base);
+    change(v);
+    return v;
+}
+
+const setField = (v: DocumentValues, key: string, value: FieldValue) => {
+    v.fields[key] = value;
+};
+
+/** The other side of the agreement: the party that is not iBUS. */
+function setCounterparty(v: DocumentValues, name: string) {
+    const party = v.parties.find((p) => !/^ibus/i.test(p.role));
+    if (party) party.values.name = name;
+}
+
+const attestation = (byId: string, at: string) => ({ byId, at, items: ["Attestation acknowledged"] });
+
+const lla = () => sampleValues.leaveAndLicense();
+const llaIssues = () => sampleValues.leaveAndLicenseWithIssues();
 
 export const documents: ContractDocument[] = [
     {
         id: "d1",
         projectId: "p1",
-        typeId: "t1",
-        title: "Grand Residency Hotel Lease",
+        typeCode: LLA,
+        title: "Andheri East Office Leave and License",
         status: "APPROVAL_PENDING",
-        metadata: {
-            contractIdentifier: "HOSP-2026-0142",
-            legalEntity: "iBUS Network",
-            startDate: "2026-12-01",
-            endDate: "2029-11-30",
-            counterpartyEntity: "Grand Residency Hotels Pvt Ltd",
-            counterpartySignatory: "A. Kumar",
-            siteAddress: "12 Beach Road, Chennai",
-            pricingModel: "REVENUE_SHARE",
-            revenueSharePercent: "12.50",
-            tags: ["hospitality", "chennai"],
-        },
+        instanceId: `${LLA}/2026/0002`,
+        values: llaIssues(),
         currentVersionNo: 2,
         createdById: "u3",
         createdAt: "2026-11-03T09:20:00Z",
@@ -174,17 +167,8 @@ export const documents: ContractDocument[] = [
                 no: 1,
                 submittedBy: "u3",
                 submittedAt: "2026-11-04T11:00:00Z",
-                metadata: {
-                    contractIdentifier: "HOSP-2026-0142",
-                    legalEntity: "iBUS Network",
-                    startDate: "2026-12-01",
-                    endDate: "2028-11-30",
-                    counterpartyEntity: "Grand Residency Hotels Pvt Ltd",
-                    counterpartySignatory: "A. Kumar",
-                    pricingModel: "REVENUE_SHARE",
-                    revenueSharePercent: "12.50",
-                },
-                fileName: "grand-residency-lease.pdf",
+                values: variant(llaIssues(), (v) => setField(v, "term_duration", { value: "24", unit: "months" })),
+                fileName: "andheri-leave-and-license.pdf",
                 fileSizeKb: 1840,
                 fileHash: hash("3fa9"),
             },
@@ -192,19 +176,8 @@ export const documents: ContractDocument[] = [
                 no: 2,
                 submittedBy: "u3",
                 submittedAt: "2026-11-06T15:10:00Z",
-                metadata: {
-                    contractIdentifier: "HOSP-2026-0142",
-                    legalEntity: "iBUS Network",
-                    startDate: "2026-12-01",
-                    endDate: "2029-11-30",
-                    counterpartyEntity: "Grand Residency Hotels Pvt Ltd",
-                    counterpartySignatory: "A. Kumar",
-                    siteAddress: "12 Beach Road, Chennai",
-                    pricingModel: "REVENUE_SHARE",
-                    revenueSharePercent: "12.50",
-                    tags: ["hospitality", "chennai"],
-                },
-                fileName: "grand-residency-lease-v2.pdf",
+                values: llaIssues(),
+                fileName: "andheri-leave-and-license-v2.pdf",
                 fileSizeKb: 1856,
                 fileHash: hash("8c41"),
             },
@@ -215,7 +188,7 @@ export const documents: ContractDocument[] = [
                 versionNo: 1,
                 authorId: "u4",
                 type: "REJECTION",
-                text: "End date is wrong. The signed agreement runs for three years, until 30 Nov 2029.",
+                text: "The term is wrong. The signed agreement runs for three years, not two.",
                 createdAt: "2026-11-05T10:30:00Z",
             },
             {
@@ -223,7 +196,7 @@ export const documents: ContractDocument[] = [
                 versionNo: 1,
                 authorId: "u3",
                 type: "COMMENT",
-                text: "Thanks, corrected the end date and added the site address. Resubmitting as version 2.",
+                text: "Thanks, corrected the term to 36 months. Resubmitting as version 2.",
                 createdAt: "2026-11-06T15:05:00Z",
                 replyToId: "m1",
             },
@@ -231,7 +204,7 @@ export const documents: ContractDocument[] = [
         activity: [
             { at: "2026-11-03T09:20:00Z", byId: "u3", action: "Created draft" },
             { at: "2026-11-04T11:00:00Z", byId: "u3", action: "Submitted version 1" },
-            { at: "2026-11-05T10:30:00Z", byId: "u4", action: "Rejected version 1", detail: "End date is wrong" },
+            { at: "2026-11-05T10:30:00Z", byId: "u4", action: "Rejected version 1", detail: "The term is wrong" },
             { at: "2026-11-06T14:50:00Z", byId: "u3", action: "Reopened for correction" },
             { at: "2026-11-06T15:10:00Z", byId: "u3", action: "Submitted version 2" },
         ],
@@ -239,22 +212,14 @@ export const documents: ContractDocument[] = [
     {
         id: "d2",
         projectId: "p1",
-        typeId: "t3",
-        title: "Sea Breeze Resort Housekeeping Services",
+        typeCode: WH,
+        title: "Northgate Logistics Warehouse Services",
         status: "APPROVED",
-        metadata: {
-            contractIdentifier: "HOSP-2026-0138",
-            legalEntity: "iBUS Infra",
-            startDate: "2026-11-01",
-            endDate: "2027-10-31",
-            counterpartyEntity: "CleanPro Facility Services",
-            counterpartySignatory: "R. Prakash",
-            serviceScope: "Daily housekeeping for 120 rooms and common areas",
-            pricingModel: "FIXED",
-            fixedAmount: "1850000.00",
-        },
+        instanceId: `${WH}/2026/0001`,
+        values: sampleValues.warehouse(),
         currentVersionNo: 1,
         approvedVersionNo: 1,
+        attestation: attestation("u2", "2026-10-30T12:00:00Z"),
         createdById: "u5",
         createdAt: "2026-10-28T10:00:00Z",
         updatedAt: "2026-10-30T12:00:00Z",
@@ -263,18 +228,8 @@ export const documents: ContractDocument[] = [
                 no: 1,
                 submittedBy: "u5",
                 submittedAt: "2026-10-29T09:00:00Z",
-                metadata: {
-                    contractIdentifier: "HOSP-2026-0138",
-                    legalEntity: "iBUS Infra",
-                    startDate: "2026-11-01",
-                    endDate: "2027-10-31",
-                    counterpartyEntity: "CleanPro Facility Services",
-                    counterpartySignatory: "R. Prakash",
-                    serviceScope: "Daily housekeeping for 120 rooms and common areas",
-                    pricingModel: "FIXED",
-                    fixedAmount: "1850000.00",
-                },
-                fileName: "sea-breeze-housekeeping.pdf",
+                values: sampleValues.warehouse(),
+                fileName: "northgate-warehouse-services.pdf",
                 fileSizeKb: 920,
                 fileHash: hash("b27e"),
             },
@@ -298,16 +253,14 @@ export const documents: ContractDocument[] = [
     {
         id: "d3",
         projectId: "p1",
-        typeId: "t1",
-        title: "Palm Grove Lease Renewal",
+        typeCode: LLA,
+        title: "Bandra Office Leave and License",
         status: "DRAFT",
-        metadata: {
-            contractIdentifier: "HOSP-2026-0151",
-            legalEntity: "iBUS Network",
-            startDate: "2027-01-01",
-            counterpartyEntity: "Palm Grove Hospitality LLP",
-        },
-        draftFileName: "palm-grove-renewal.pdf",
+        values: variant(lla(), (v) => {
+            for (const key of ["premises_area", "license_fee", "security_deposit"]) delete v.fields[key];
+            setCounterparty(v, "Bandra Kurla Estates LLP");
+        }),
+        draftFileName: "bandra-leave-and-license.pdf",
         draftFileSizeKb: 1310,
         createdById: "u3",
         createdAt: "2026-11-09T16:00:00Z",
@@ -322,18 +275,11 @@ export const documents: ContractDocument[] = [
     {
         id: "d4",
         projectId: "p1",
-        typeId: "t2",
-        title: "City Centre Retail Lease",
+        typeCode: LLA,
+        title: "Powai Retail Leave and License",
         status: "REJECTED",
-        metadata: {
-            contractIdentifier: "HOSP-2026-0120",
-            legalEntity: "iBUS Network",
-            startDate: "2026-12-15",
-            endDate: "2031-12-14",
-            counterpartyEntity: "Metro Retail Ventures",
-            counterpartySignatory: "",
-            pricingModel: "SHARED",
-        },
+        instanceId: `${LLA}/2026/0003`,
+        values: variant(llaIssues(), (v) => setCounterparty(v, "Powai Retail Ventures")),
         currentVersionNo: 1,
         createdById: "u3",
         createdAt: "2026-11-02T09:00:00Z",
@@ -343,16 +289,8 @@ export const documents: ContractDocument[] = [
                 no: 1,
                 submittedBy: "u3",
                 submittedAt: "2026-11-05T09:30:00Z",
-                metadata: {
-                    contractIdentifier: "HOSP-2026-0120",
-                    legalEntity: "iBUS Network",
-                    startDate: "2026-12-15",
-                    endDate: "2031-12-14",
-                    counterpartyEntity: "Metro Retail Ventures",
-                    counterpartySignatory: "",
-                    pricingModel: "SHARED",
-                },
-                fileName: "city-centre-retail-lease.pdf",
+                values: variant(llaIssues(), (v) => setCounterparty(v, "Powai Retail Ventures")),
+                fileName: "powai-retail-leave-and-license.pdf",
                 fileSizeKb: 2210,
                 fileHash: hash("51d0"),
             },
@@ -363,53 +301,54 @@ export const documents: ContractDocument[] = [
                 versionNo: 1,
                 authorId: "u4",
                 type: "REJECTION",
-                text: "Counterparty signing authority is missing. Please add the name as it appears on page 14.",
+                text: "The security deposit is 14 times the monthly fee. Please confirm the amount with the licensor and correct it.",
                 createdAt: "2026-11-07T11:20:00Z",
             },
         ],
         activity: [
             { at: "2026-11-02T09:00:00Z", byId: "u3", action: "Created draft" },
             { at: "2026-11-05T09:30:00Z", byId: "u3", action: "Submitted version 1" },
-            { at: "2026-11-07T11:20:00Z", byId: "u4", action: "Rejected version 1", detail: "Signing authority missing" },
+            {
+                at: "2026-11-07T11:20:00Z",
+                byId: "u4",
+                action: "Rejected version 1",
+                detail: "Deposit is 14 times the monthly fee",
+            },
         ],
     },
     {
         id: "d5",
         projectId: "p1",
-        typeId: "t1",
-        title: "Lakeview Hotel Lease 2024",
+        typeCode: LLA,
+        title: "Lakeview Office Leave and License 2024",
         status: "INVALID",
-        metadata: {
-            contractIdentifier: "HOSP-2024-0077",
-            legalEntity: "iBUS Network",
-            startDate: "2024-06-01",
-            endDate: "2027-05-31",
-            counterpartyEntity: "Lakeview Hotels Ltd",
-            counterpartySignatory: "S. Menon",
-            pricingModel: "PERCENTAGE",
-        },
+        instanceId: `${LLA}/2024/0007`,
+        values: variant(lla(), (v) => {
+            setCounterparty(v, "Lakeview Estates Ltd");
+            setField(v, "execution_date", "2024-05-28");
+            setField(v, "effective_date", "2024-06-01");
+            setField(v, "term_duration", { value: "3", unit: "years" });
+        }),
         currentVersionNo: 1,
         approvedVersionNo: 1,
+        attestation: attestation("u2", "2024-05-24T10:00:00Z"),
         createdById: "u5",
         createdAt: "2024-05-20T10:00:00Z",
         updatedAt: "2026-11-01T10:00:00Z",
         invalidatedById: "u2",
         invalidatedAt: "2026-11-01T10:00:00Z",
-        invalidationReason: "Replaced by the renegotiated agreement HOSP-2026-0155.",
+        invalidationReason: "Replaced by the renegotiated agreement Lakeview 2026.",
         versions: [
             {
                 no: 1,
                 submittedBy: "u5",
                 submittedAt: "2024-05-22T10:00:00Z",
-                metadata: {
-                    contractIdentifier: "HOSP-2024-0077",
-                    legalEntity: "iBUS Network",
-                    startDate: "2024-06-01",
-                    endDate: "2027-05-31",
-                    counterpartyEntity: "Lakeview Hotels Ltd",
-                    counterpartySignatory: "S. Menon",
-                    pricingModel: "PERCENTAGE",
-                },
+                values: variant(lla(), (v) => {
+                    setCounterparty(v, "Lakeview Estates Ltd");
+                    setField(v, "execution_date", "2024-05-28");
+                    setField(v, "effective_date", "2024-06-01");
+                    setField(v, "term_duration", { value: "3", unit: "years" });
+                }),
                 fileName: "lakeview-lease-2024.pdf",
                 fileSizeKb: 1640,
                 fileHash: hash("9e02"),
@@ -424,26 +363,18 @@ export const documents: ContractDocument[] = [
                 at: "2026-11-01T10:00:00Z",
                 byId: "u2",
                 action: "Marked invalid",
-                detail: "Replaced by the renegotiated agreement HOSP-2026-0155.",
+                detail: "Replaced by the renegotiated agreement Lakeview 2026.",
             },
         ],
     },
     {
         id: "d6",
         projectId: "p1",
-        typeId: "t1",
-        title: "Lakeview Hotel Lease 2026",
+        typeCode: LLA,
+        title: "Lakeview Office Leave and License 2026",
         status: "APPROVAL_PENDING",
-        metadata: {
-            contractIdentifier: "HOSP-2026-0155",
-            legalEntity: "iBUS Network",
-            startDate: "2026-11-15",
-            endDate: "2029-11-14",
-            counterpartyEntity: "Lakeview Hotels Ltd",
-            counterpartySignatory: "S. Menon",
-            pricingModel: "REVENUE_SHARE",
-            revenueSharePercent: "10.00",
-        },
+        instanceId: `${LLA}/2026/0004`,
+        values: variant(lla(), (v) => setCounterparty(v, "Lakeview Estates Ltd")),
         currentVersionNo: 1,
         createdById: "u5",
         createdFromId: "d5",
@@ -454,16 +385,7 @@ export const documents: ContractDocument[] = [
                 no: 1,
                 submittedBy: "u5",
                 submittedAt: "2026-11-08T10:00:00Z",
-                metadata: {
-                    contractIdentifier: "HOSP-2026-0155",
-                    legalEntity: "iBUS Network",
-                    startDate: "2026-11-15",
-                    endDate: "2029-11-14",
-                    counterpartyEntity: "Lakeview Hotels Ltd",
-                    counterpartySignatory: "S. Menon",
-                    pricingModel: "REVENUE_SHARE",
-                    revenueSharePercent: "10.00",
-                },
+                values: variant(lla(), (v) => setCounterparty(v, "Lakeview Estates Ltd")),
                 fileName: "lakeview-lease-2026.pdf",
                 fileSizeKb: 1720,
                 fileHash: hash("c7a3"),
@@ -471,17 +393,22 @@ export const documents: ContractDocument[] = [
         ],
         comments: [],
         activity: [
-            { at: "2026-11-02T09:00:00Z", byId: "u5", action: "Created from invalid document", detail: "HOSP-2024-0077" },
+            {
+                at: "2026-11-02T09:00:00Z",
+                byId: "u5",
+                action: "Created from invalid document",
+                detail: `${LLA}/2024/0007`,
+            },
             { at: "2026-11-08T10:00:00Z", byId: "u5", action: "Submitted version 1" },
         ],
     },
     {
         id: "d7",
         projectId: "p1",
-        typeId: "t3",
-        title: "Laundry Services Agreement",
+        typeCode: NDA,
+        title: "Vertex Analytics Mutual NDA",
         status: "DRAFT",
-        metadata: { contractIdentifier: "HOSP-2026-0160", legalEntity: "iBUS Infra" },
+        values: sampleValues.ndaDraft(),
         createdById: "u5",
         createdAt: "2026-11-10T08:30:00Z",
         updatedAt: "2026-11-10T08:30:00Z",
@@ -492,22 +419,14 @@ export const documents: ContractDocument[] = [
     {
         id: "d8",
         projectId: "p1",
-        typeId: "t4",
-        title: "Kitchen Equipment AMC",
+        typeCode: NDA,
+        title: "Lakeview Analytics Mutual NDA",
         status: "APPROVED",
-        metadata: {
-            contractIdentifier: "HOSP-2026-0101",
-            legalEntity: "iBUS Infra",
-            startDate: "2026-08-01",
-            endDate: "2027-07-31",
-            counterpartyEntity: "ChefTech Services",
-            counterpartySignatory: "L. Joseph",
-            serviceScope: "Quarterly maintenance of kitchen equipment",
-            pricingModel: "FIXED",
-            fixedAmount: "420000.00",
-        },
+        instanceId: `${NDA}/2026/0001`,
+        values: sampleValues.nda(),
         currentVersionNo: 1,
         approvedVersionNo: 1,
+        attestation: attestation("u4", "2026-07-25T10:00:00Z"),
         createdById: "u3",
         createdAt: "2026-07-20T10:00:00Z",
         updatedAt: "2026-07-25T10:00:00Z",
@@ -516,18 +435,8 @@ export const documents: ContractDocument[] = [
                 no: 1,
                 submittedBy: "u3",
                 submittedAt: "2026-07-22T10:00:00Z",
-                metadata: {
-                    contractIdentifier: "HOSP-2026-0101",
-                    legalEntity: "iBUS Infra",
-                    startDate: "2026-08-01",
-                    endDate: "2027-07-31",
-                    counterpartyEntity: "ChefTech Services",
-                    counterpartySignatory: "L. Joseph",
-                    serviceScope: "Quarterly maintenance of kitchen equipment",
-                    pricingModel: "FIXED",
-                    fixedAmount: "420000.00",
-                },
-                fileName: "kitchen-amc.pdf",
+                values: sampleValues.nda(),
+                fileName: "lakeview-analytics-nda.pdf",
                 fileSizeKb: 640,
                 fileHash: hash("04bb"),
             },
@@ -542,20 +451,11 @@ export const documents: ContractDocument[] = [
     {
         id: "d9",
         projectId: "p2",
-        typeId: "t5",
-        title: "Office Furniture Supply",
+        typeCode: WH,
+        title: "Urban Furnish Warehousing Agreement",
         status: "APPROVAL_PENDING",
-        metadata: {
-            contractIdentifier: "PROC-2026-0033",
-            legalEntity: "iBUS Infra",
-            startDate: "2026-11-20",
-            endDate: "2027-11-19",
-            counterpartyEntity: "Urban Furnish Pvt Ltd",
-            counterpartySignatory: "K. Shah",
-            serviceScope: "Supply and installation of office furniture",
-            pricingModel: "FIXED",
-            fixedAmount: "960000.00",
-        },
+        instanceId: `${WH}/2026/0002`,
+        values: variant(sampleValues.warehouse(), (v) => setCounterparty(v, "Urban Furnish Pvt Ltd")),
         currentVersionNo: 1,
         createdById: "u7",
         createdAt: "2026-11-06T10:00:00Z",
@@ -565,18 +465,8 @@ export const documents: ContractDocument[] = [
                 no: 1,
                 submittedBy: "u7",
                 submittedAt: "2026-11-07T10:00:00Z",
-                metadata: {
-                    contractIdentifier: "PROC-2026-0033",
-                    legalEntity: "iBUS Infra",
-                    startDate: "2026-11-20",
-                    endDate: "2027-11-19",
-                    counterpartyEntity: "Urban Furnish Pvt Ltd",
-                    counterpartySignatory: "K. Shah",
-                    serviceScope: "Supply and installation of office furniture",
-                    pricingModel: "FIXED",
-                    fixedAmount: "960000.00",
-                },
-                fileName: "office-furniture-supply.pdf",
+                values: variant(sampleValues.warehouse(), (v) => setCounterparty(v, "Urban Furnish Pvt Ltd")),
+                fileName: "urban-furnish-warehousing.pdf",
                 fileSizeKb: 780,
                 fileHash: hash("6d1f"),
             },
