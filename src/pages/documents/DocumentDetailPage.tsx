@@ -36,7 +36,6 @@ import {
 } from "@/components/ui/dialog";
 import { Field } from "@/components/Field";
 import { Checkbox } from "@/components/ui/checkbox";
-import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { approvalFields, deriveContext, documentIssues, submitLibrary } from "@/demo/docs";
@@ -69,7 +68,8 @@ function NotesTab({ doc, canComment }: { doc: ContractDocument; canComment: bool
     const { actions } = useDemo();
     const { userName } = useLookups();
     const [text, setText] = useState("");
-    const [versionNo, setVersionNo] = useState(doc.currentVersionNo ?? 0);
+    // Comments are only ever added to the current version. Earlier versions keep their comments as read-only history.
+    const versionNo = doc.currentVersionNo ?? 0;
     const [replyTo, setReplyTo] = useState<Comment | null>(null);
 
     if (!doc.versions.length) {
@@ -77,7 +77,7 @@ function NotesTab({ doc, canComment }: { doc: ContractDocument; canComment: bool
             <EmptyState
                 icon={MessageSquare}
                 title="No comments yet"
-                text="Comments start once the document is submitted. Each comment belongs to the version it discusses."
+                text="Comments start once the document is submitted. They are added to the current version."
             />
         );
     }
@@ -94,49 +94,85 @@ function NotesTab({ doc, canComment }: { doc: ContractDocument; canComment: bool
 
     return (
         <div className="flex flex-col gap-6">
-            {versions.map((v) => {
-                const comments = doc.comments.filter((c) => c.versionNo === v.no && !c.replyToId);
-                const state = versionState(doc, v);
-                return (
-                    <section key={v.no}>
-                        <div className="mb-3 flex flex-wrap items-center gap-2">
-                            <h3 className="text-sm font-semibold">Version {v.no}</h3>
-                            <Badge variant={stateVariant(state)}>{state}</Badge>
-                            <span className="text-xs text-muted-foreground">
-                                submitted by {userName(v.submittedBy)} · {fmtDateTime(v.submittedAt)}
-                            </span>
-                        </div>
-                        {comments.length === 0 ? (
-                            <p className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
-                                No comments on this version.
-                            </p>
-                        ) : (
-                            <ul className="flex flex-col gap-3">
-                                {comments.map((c) => {
-                                    const replies = doc.comments.filter((r) => r.replyToId === c.id);
-                                    return (
-                                        <li key={c.id} className="rounded-lg border bg-card">
-                                            <CommentItem
-                                                comment={c}
-                                                onReply={canComment ? () => setReplyTo(c) : undefined}
-                                            />
-                                            {replies.length > 0 && (
-                                                <ul className="ml-10 flex flex-col border-t">
-                                                    {replies.map((r) => (
-                                                        <li key={r.id}>
-                                                            <CommentItem comment={r} />
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            )}
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        )}
-                    </section>
-                );
-            })}
+            {versions
+                .filter((v) => v.no === versionNo)
+                .map((v) => {
+                    const comments = doc.comments.filter((c) => c.versionNo === v.no && !c.replyToId);
+                    const state = versionState(doc, v);
+                    return (
+                        <section key={v.no}>
+                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                                <h3 className="text-sm font-semibold">Version {v.no}</h3>
+                                <Badge variant="pending">Current</Badge>
+                                <Badge variant={stateVariant(state)}>{state}</Badge>
+                                <span className="text-xs text-muted-foreground">
+                                    submitted by {userName(v.submittedBy)} · {fmtDateTime(v.submittedAt)}
+                                </span>
+                            </div>
+                            {comments.length === 0 ? (
+                                <p className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+                                    No comments on this version.
+                                </p>
+                            ) : (
+                                <ul className="flex flex-col gap-3">
+                                    {comments.map((c) => {
+                                        const replies = doc.comments.filter((r) => r.replyToId === c.id);
+                                        return (
+                                            <li key={c.id} className="rounded-lg border bg-card">
+                                                <CommentItem
+                                                    comment={c}
+                                                    onReply={canComment ? () => setReplyTo(c) : undefined}
+                                                />
+                                                {replies.length > 0 && (
+                                                    <ul className="ml-10 flex flex-col border-t">
+                                                        {replies.map((r) => (
+                                                            <li key={r.id}>
+                                                                <CommentItem comment={r} />
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                )}
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
+                        </section>
+                    );
+                })}
+
+            {versions.some((v) => v.no !== versionNo) && (
+                <details className="rounded-lg border bg-card">
+                    <summary className="cursor-pointer px-4 py-3 text-sm text-muted-foreground">
+                        Earlier versions · comments kept as history, read only
+                    </summary>
+                    <div className="flex flex-col gap-4 border-t p-4">
+                        {versions
+                            .filter((v) => v.no !== versionNo)
+                            .map((v) => {
+                                const earlier = doc.comments.filter((c) => c.versionNo === v.no);
+                                return (
+                                    <section key={v.no}>
+                                        <h3 className="mb-2 text-sm font-semibold">Version {v.no}</h3>
+                                        {earlier.length === 0 ? (
+                                            <p className="text-sm text-muted-foreground">
+                                                No comments on this version.
+                                            </p>
+                                        ) : (
+                                            <ul className="flex flex-col divide-y rounded-lg border">
+                                                {earlier.map((c) => (
+                                                    <li key={c.id}>
+                                                        <CommentItem comment={c} />
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </section>
+                                );
+                            })}
+                    </div>
+                </details>
+            )}
 
             {canComment && (
                 <Card>
@@ -151,15 +187,11 @@ function NotesTab({ doc, canComment }: { doc: ContractDocument; canComment: bool
                                 </button>
                             </div>
                         ) : (
-                            <Field label="Comment on" className="sm:w-56">
-                                <NativeSelect value={versionNo} onChange={(e) => setVersionNo(Number(e.target.value))}>
-                                    {versions.map((v) => (
-                                        <option key={v.no} value={v.no}>
-                                            Version {v.no}
-                                        </option>
-                                    ))}
-                                </NativeSelect>
-                            </Field>
+                            <p className="text-sm text-muted-foreground">
+                                Your comment will be added to{" "}
+                                <span className="font-medium text-foreground">Version {versionNo} (current)</span>. To
+                                mention an earlier version, write it in the comment.
+                            </p>
                         )}
                         <Textarea
                             placeholder="Write a comment…"

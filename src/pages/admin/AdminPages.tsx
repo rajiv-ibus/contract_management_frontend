@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { EmptyState, Initials, PageHeader, fmtAgo } from "@/components/common";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import {
     Dialog,
     DialogContent,
@@ -352,6 +352,9 @@ export function ProjectsPage() {
     const { projects, memberships, documents, actions } = useDemo();
     const [open, setOpen] = useState(false);
     const [form, setForm] = useState({ code: "", name: "", description: "" });
+    const [query, setQuery] = useState("");
+    const q = query.trim().toLowerCase();
+    const shown = projects.filter((p) => !q || p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q));
 
     function create() {
         if (!form.code.trim() || !form.name.trim()) return;
@@ -372,58 +375,87 @@ export function ProjectsPage() {
                     </Button>
                 }
             />
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {projects.map((p) => {
-                    const members = memberships.filter((m) => m.projectId === p.id);
-                    return (
-                        <Card key={p.id}>
-                            <CardHeader>
-                                <div className="flex items-start justify-between gap-2">
-                                    <div className="flex items-center gap-2">
-                                        <Building2 className="size-4 text-muted-foreground" />
-                                        <CardTitle>{p.name}</CardTitle>
-                                    </div>
-                                    {p.active ? (
-                                        <Badge variant="approved">Active</Badge>
-                                    ) : (
-                                        <Badge variant="muted">Inactive</Badge>
-                                    )}
-                                </div>
-                                <CardDescription>{p.description}</CardDescription>
-                            </CardHeader>
-                            <CardContent className="grid grid-cols-3 gap-2 text-center">
-                                <div>
-                                    <p className="text-lg font-semibold">{p.code}</p>
-                                    <p className="text-xs text-muted-foreground">Code</p>
-                                </div>
-                                <div>
-                                    <p className="text-lg font-semibold">{members.length}</p>
-                                    <p className="text-xs text-muted-foreground">Members</p>
-                                </div>
-                                <div>
-                                    <p className="text-lg font-semibold">
+            <Card>
+                <div className="border-b p-3">
+                    <div className="relative max-w-sm">
+                        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="Search project name or code"
+                            className="pl-9"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                        />
+                    </div>
+                </div>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Project</TableHead>
+                            <TableHead>Code</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Members</TableHead>
+                            <TableHead className="text-right">Admins</TableHead>
+                            <TableHead className="text-right">Contracts</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {shown.map((p) => {
+                            const members = memberships.filter((m) => m.projectId === p.id);
+                            const admins = members.filter((m) => m.isAdmin).length;
+                            return (
+                                <TableRow key={p.id}>
+                                    <TableCell className="max-w-md">
+                                        <div className="flex items-start gap-2">
+                                            <Building2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                            <div className="min-w-0">
+                                                <p className="font-medium">{p.name}</p>
+                                                <p className="truncate text-xs text-muted-foreground">
+                                                    {p.description}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="font-mono text-xs">{p.code}</TableCell>
+                                    <TableCell>
+                                        {p.active ? (
+                                            <Badge variant="approved">Active</Badge>
+                                        ) : (
+                                            <Badge variant="muted">Inactive</Badge>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="text-right">{members.length}</TableCell>
+                                    <TableCell className="text-right">
+                                        {admins || <span className="text-muted-foreground">none yet</span>}
+                                    </TableCell>
+                                    <TableCell className="text-right">
                                         {documents.filter((d) => d.projectId === p.id).length}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">Contracts</p>
-                                </div>
-                            </CardContent>
-                            <CardFooter className="justify-between text-xs text-muted-foreground">
-                                <span>Admins: {members.filter((m) => m.isAdmin).length || "none yet"}</span>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                        actions.updateProject(p.id, { active: !p.active });
-                                        toast.success(`${p.name} ${p.active ? "deactivated" : "activated"}.`);
-                                    }}
-                                >
-                                    {p.active ? "Deactivate" : "Activate"}
-                                </Button>
-                            </CardFooter>
-                        </Card>
-                    );
-                })}
-            </div>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                                actions.updateProject(p.id, { active: !p.active });
+                                                toast.success(`${p.name} ${p.active ? "deactivated" : "activated"}.`);
+                                            }}
+                                        >
+                                            {p.active ? "Deactivate" : "Activate"}
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
+                        {shown.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                                    No project matches your search.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </Card>
 
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent>
